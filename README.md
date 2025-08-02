@@ -7,6 +7,7 @@ A kubectl plugin for streamlined health diagnostics of HiveMQ broker clusters ru
 - 🚀 **Single Pod Health Checks**: Check individual HiveMQ broker pods
 - 🔄 **Parallel Cluster Health Checks**: Concurrent health checks across entire StatefulSets
 - 🔍 **Automatic Discovery**: Find HiveMQ brokers across all accessible namespaces
+- 🎯 **Intelligent Defaults**: Automatically uses StatefulSet "broker" and current kubectl context namespace
 - 📊 **Professional Output**: Clean tabular results with response times and status details
 - 🛡️ **Robust Error Handling**: Comprehensive error messages with actionable guidance
 - 🔧 **Port Discovery**: Automatic health port detection with manual override support
@@ -66,14 +67,33 @@ Once installed, use `kubectl broker` instead of `kubectl-broker`:
 # Discovery mode - find all HiveMQ brokers
 kubectl broker --discover
 
+# Quick cluster health check with intelligent defaults
+kubectl broker
+
 # Single pod health check
 kubectl broker --pod broker-0 --namespace my-hivemq-namespace
 
-# Full cluster health check (recommended)
+# Full cluster health check (explicit)
 kubectl broker --statefulset broker --namespace my-hivemq-namespace
 
 # With custom port
 kubectl broker --statefulset broker --namespace my-hivemq-namespace --port 9090
+```
+
+### Intelligent Defaults
+
+kubectl-broker includes smart defaults for common usage patterns:
+
+```bash
+# Automatically uses StatefulSet "broker" and current kubectl context namespace
+kubectl broker
+
+# Equivalent to:
+kubectl broker --statefulset broker --namespace $(kubectl config view --minify -o jsonpath='{..namespace}')
+
+# Visual feedback shows which defaults were applied
+# 🎯 Using default StatefulSet: broker
+# 🎯 Using namespace from context: my-namespace
 ```
 
 ### Direct Binary Usage
@@ -82,11 +102,26 @@ You can also run the binary directly:
 
 ```bash
 ./kubectl-broker --discover
+./kubectl-broker  # Uses intelligent defaults
 ./kubectl-broker --pod broker-0 --namespace my-hivemq-namespace
 ./kubectl-broker --statefulset broker --namespace my-hivemq-namespace
 ```
 
 ## Command Examples
+
+### Quick Health Check with Defaults
+```bash
+kubectl broker
+```
+Output:
+```
+🎯 Using default StatefulSet: broker
+🎯 Using namespace from context: production-hivemq
+Checking health of StatefulSet broker in namespace production-hivemq
+Found 3 pods in StatefulSet
+
+[Health check results...]
+```
 
 ### Discovery Mode
 ```bash
@@ -101,7 +136,7 @@ Namespace: production-hivemq
   All pods:   kubectl broker --statefulset broker --namespace production-hivemq
 ```
 
-### Cluster Health Check
+### Cluster Health Check (Explicit)
 ```bash
 kubectl broker --statefulset broker --namespace production-hivemq
 ```
@@ -124,13 +159,13 @@ Summary: 3/3 pods healthy
 | Flag | Description | Required | Example |
 |------|-------------|----------|---------|
 | `--discover` | Discover available broker pods and namespaces | No | `kubectl broker --discover` |
-| `--pod` | Name of specific pod to check (single pod mode) | Yes* | `--pod broker-0` |
-| `--statefulset` | Name of StatefulSet to check (cluster mode) | Yes* | `--statefulset broker` |
-| `--namespace, -n` | Kubernetes namespace | Yes** | `--namespace production` |
+| `--pod` | Name of specific pod to check (single pod mode) | Optional* | `--pod broker-0` |
+| `--statefulset` | Name of StatefulSet to check (cluster mode) | Optional* | `--statefulset broker` |
+| `--namespace, -n` | Kubernetes namespace | Optional** | `--namespace production` |
 | `--port, -p` | Manual port override for health checks | No | `--port 9090` |
 
-*Either `--pod` or `--statefulset` is required (cannot use both)  
-**Not required when using `--discover`
+*If neither `--pod` nor `--statefulset` is specified, defaults to `--statefulset broker`  
+**Defaults to current kubectl context namespace. Not required when using `--discover`
 
 ## Architecture
 

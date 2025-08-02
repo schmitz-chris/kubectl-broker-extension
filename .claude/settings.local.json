@@ -31,7 +31,10 @@
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --help)",
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --discover)",
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --statefulset broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Bash(./kubectl-broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker)"
     ],
     "deny": []
   }

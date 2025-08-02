@@ -100,26 +100,47 @@ The key technical decision is to implement the connection logic using the native
 
 ***
 
-### ## Phase 3: Polish - Intelligent Defaults and Usability ⏸️ **DEFERRED**
+### ## Phase 3: Polish - Intelligent Defaults and Usability ✅ **COMPLETED**
 
 **Goal:** Make the tool effortless for common use cases by implementing intelligent defaults and adding production-ready features for robustness and automation.
 
-**Status:** Deferred in favor of completing kubectl plugin integration (Phase 4) first. The core functionality is complete and production-ready. Phase 3 features can be added in future iterations based on user feedback.
-
-**Planned Features (Future Roadmap):**
+**Implementation Details:**
 * **Intelligent Defaults**: Make flags optional with smart fallbacks:
-  - Namespace defaults to the **current `kubectl` context**
-  - StatefulSet defaults to **`"broker"`**
-  - Context handling: "No current kubectl context set. Use 'kubectl config use-context' or specify --namespace"
-* **Production Features**: Add `--output json`, `--timeout`, and `--verbose` flags
-* **Comprehensive Error Handling**: Provide actionable guidance for all common scenarios:
-  - RBAC issues with specific permission requirements
-  - Missing resources with suggestions for available alternatives  
-  - Network connectivity problems with troubleshooting steps
-  - Configuration issues with clear resolution paths
-* **User Experience**: Ensure error messages guide users to solutions rather than just reporting problems.
+  - **Automatic StatefulSet Selection**: If neither `--pod` nor `--statefulset` is specified, defaults to `--statefulset broker`
+  - **Context-Aware Namespace**: If `--namespace` is not specified, automatically uses the namespace from the current kubectl context
+  - **User Feedback**: Visual indicators (🎯) show which defaults were applied for transparency
+  - **Fallback Handling**: If no kubectl context namespace is set, falls back to "default" namespace
+* **Enhanced CLI Validation**: Smart PreRunE validation that applies defaults before checking requirements:
+  - Prevents conflicts between `--pod` and `--statefulset` flags
+  - Provides helpful error messages for context configuration issues
+  - Maintains backward compatibility with explicit flag usage
+* **kubeconfig Context Integration**: 
+  - **GetDefaultNamespace()** function reads current kubectl context
+  - Supports kubie environment variables (`KUBIE_KUBECONFIG`)
+  - Handles standard `KUBECONFIG` environment variable
+  - Falls back to default `~/.kube/config` path
+* **User Experience Improvements**:
+  - Clear visual feedback when defaults are applied
+  - Helpful error messages with actionable guidance
+  - Maintains all existing functionality while making common usage effortless
 
-**Rationale for Deferral:** Phase 4 (kubectl plugin integration) was prioritized as it provides immediate value to users by making kubectl-broker available as a standard kubectl plugin. The current implementation already includes robust error handling and user-friendly features. Phase 3 enhancements can be added incrementally based on real-world usage feedback.
+**Delivered Features:**
+- ✅ Intelligent defaults for StatefulSet and namespace selection
+- ✅ Context-aware namespace detection from kubectl configuration
+- ✅ Visual feedback showing which defaults were applied
+- ✅ Enhanced error handling for context configuration issues
+- ✅ Backward compatibility with explicit flag usage
+- ✅ Updated CLI help text and documentation to reflect optional flags
+
+**Usage Examples:**
+```bash
+# Simple usage with full defaults
+kubectl broker
+
+# Visual feedback shows applied defaults:
+# 🎯 Using default StatefulSet: broker
+# 🎯 Using namespace from context: production-hivemq
+```
 
 ***
 
@@ -180,12 +201,14 @@ kubectl broker --statefulset broker --namespace my-namespace
 ### **Completed Phases:**
 - ✅ **Phase 1**: Foundation - Single Pod Native Connection  
 - ✅ **Phase 2**: Scaling Up - Parallel Connections and Aggregation
+- ✅ **Phase 3**: Polish - Intelligent Defaults and Usability
 - ✅ **Phase 4**: Integration - Packaging as a kubectl Plugin
 
 ### **Current Capabilities:**
 🔍 **Discovery**: Find HiveMQ brokers across all accessible Kubernetes namespaces  
 🏥 **Single Pod Health**: Individual broker health checks with detailed JSON responses  
 🚀 **Cluster Health**: Concurrent health checks across entire StatefulSets with tabular results  
+🎯 **Intelligent Defaults**: Automatic StatefulSet "broker" and kubectl context namespace selection  
 📦 **kubectl Plugin**: Seamless integration as `kubectl broker` with professional installation system  
 🛡️ **Error Handling**: Comprehensive error messages with actionable guidance  
 🔧 **Port Discovery**: Automatic health port detection with manual override support  
@@ -206,15 +229,16 @@ make install-auto
 
 # Daily usage as kubectl plugin
 kubectl broker --discover                                    # Find all brokers
+kubectl broker                                               # Quick cluster check with defaults
 kubectl broker --pod broker-0 --namespace production        # Single check  
-kubectl broker --statefulset broker --namespace production  # Cluster check
+kubectl broker --statefulset broker --namespace production  # Explicit cluster check
 ```
 
-### **Future Roadmap (Phase 3):**
-Phase 3 features are planned for future iterations based on user feedback:
-- Intelligent defaults (context-aware namespace, default StatefulSet names)
+### **Future Roadmap:**
+Additional features planned for future iterations based on user feedback:
 - JSON output format and timeout configurations
-- Enhanced error handling with specific troubleshooting guidance
+- Enhanced verbose logging options
+- Advanced filtering and querying capabilities
 
 ### **Repository Structure:**
 ```

@@ -170,3 +170,51 @@ func (k *K8sClient) GetPodsFromStatefulSet(ctx context.Context, namespace, state
 	
 	return pods, nil
 }
+
+// GetDefaultNamespace extracts the default namespace from the current kubectl context
+func GetDefaultNamespace() (string, error) {
+	// Check for kubie environment variables first
+	var kubeconfig string
+	if kubieConfig := os.Getenv("KUBIE_KUBECONFIG"); kubieConfig != "" {
+		kubeconfig = kubieConfig
+	} else if envConfig := os.Getenv("KUBECONFIG"); envConfig != "" {
+		kubeconfig = envConfig
+	} else {
+		// Fall back to default kubeconfig
+		if home := homedir.HomeDir(); home != "" {
+			kubeconfig = filepath.Join(home, ".kube", "config")
+		}
+	}
+
+	// Load kubeconfig with context information
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kubeconfig != "" {
+		loadingRules.ExplicitPath = kubeconfig
+	}
+
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+
+	// Get current context info
+	rawConfig, err := kubeConfig.RawConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
+
+	currentContext := rawConfig.CurrentContext
+	if currentContext == "" {
+		return "", fmt.Errorf("no current context set in kubeconfig. Use 'kubectl config use-context' to set a context")
+	}
+
+	context, exists := rawConfig.Contexts[currentContext]
+	if !exists {
+		return "", fmt.Errorf("current context '%s' not found in kubeconfig", currentContext)
+	}
+
+	// Return namespace from context, fallback to "default" if not set
+	if context.Namespace != "" {
+		return context.Namespace, nil
+	}
+	
+	return "default", nil
+}
