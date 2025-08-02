@@ -57,22 +57,46 @@ The key technical decision is to implement the connection logic using the native
 
 ***
 
-### ## Phase 2: Scaling Up - Parallel Connections and Aggregation
+### ## Phase 2: Scaling Up - Parallel Connections and Aggregation ✅ **COMPLETED**
 
 **Goal:** Extend the single-pod logic to discover all pods in a StatefulSet and perform health checks concurrently, presenting the results in an aggregated view.
 
-**Key Steps:**
-* Change the command to use `--statefulset` and `--namespace` flags.
-* Discover all pods belonging to the StatefulSet using label selectors.
-* **Dynamic Port Allocation**: For each pod, launch a goroutine to manage its own unique, concurrent port-forward session:
-  - Use `net.Listen(":0")` to get a random available local port from the OS
-  - This ensures each goroutine gets a unique local port, preventing conflicts when checking multiple pods simultaneously
-  - Each port-forward connection uses the **`k8s.io/client-go/tools/portforward`** library
-* **Enhanced Error Handling**: Handle pod-specific issues gracefully:
-  - StatefulSet not found: "StatefulSet 'broker' not found in namespace 'default'. Available StatefulSets: [list them]"
-  - Namespace issues: "Namespace 'X' not found or inaccessible"
-  - Individual pod failures: Continue with other pods, report which ones failed and why
-* Aggregate the results from all goroutines and present them in a formatted table using **`text/tabwriter`**.
+**Implementation Details:**
+* **Dual Mode CLI Interface**: Added `--statefulset` flag for cluster mode while preserving `--pod` flag for single pod mode:
+  - Smart flag validation prevents using both `--statefulset` and `--pod` together
+  - Maintains backward compatibility with Phase 1 functionality
+  - Enhanced help text clearly distinguishes between single pod and cluster modes
+* **StatefulSet Discovery**: Native Kubernetes integration for pod discovery:
+  - `GetStatefulSet()` method retrieves StatefulSet metadata and validates existence
+  - `GetPodsFromStatefulSet()` uses label selectors to find all pods belonging to the StatefulSet
+  - Automatic filtering based on StatefulSet's `.spec.selector.matchLabels`
+* **Concurrent Health Checking Architecture**: 
+  - **Goroutine-based Parallelism**: One goroutine per pod using `sync.WaitGroup` for coordination
+  - **Dynamic Port Allocation**: Each pod gets unique local port via `net.Listen(":0")` to prevent conflicts
+  - **Timeout Management**: 30-second context timeout per pod prevents hanging on unresponsive instances
+  - **Silent Mode**: Quiet health checks for cluster mode (no verbose per-pod output)
+* **Professional Tabular Output**: 
+  - Clean table formatting using `text/tabwriter` with consistent column alignment
+  - Displays: Pod Name | Status | Health Port | Local Port | Response Time | Details
+  - Summary statistics showing healthy vs total pods with emoji indicators
+  - Truncated details for long error messages (50 char limit with "...")
+* **Enhanced Error Handling**: Comprehensive error categories and graceful degradation:
+  - **StatefulSet-specific errors**: "StatefulSet 'X' not found. Use --discover to find available StatefulSets"
+  - **Individual pod resilience**: Failed pods don't stop cluster-wide health checks
+  - **Status categorization**: HEALTHY, POD_NOT_READY, PORT_DISCOVERY_FAILED, HEALTH_CHECK_FAILED, etc.
+  - **Response time tracking**: Measures actual health check duration for performance insights
+* **Updated Discovery Mode**: Enhanced `--discover` output shows both single and cluster commands:
+  - Single pod: `./kubectl-broker --pod broker-0 --namespace X`
+  - All pods: `./kubectl-broker --statefulset broker --namespace X`
+
+**Delivered Features:**
+- ✅ Concurrent health checks for entire StatefulSets (2-pod and 3-pod clusters tested)
+- ✅ Dynamic port allocation preventing port conflicts during parallel checks
+- ✅ Professional tabular output with response times and status categorization
+- ✅ Graceful error handling - individual pod failures don't stop entire operation
+- ✅ Backward compatibility - Phase 1 single pod functionality fully preserved
+- ✅ Enhanced discovery mode showing both single and cluster usage examples
+- ✅ StatefulSet-specific error messages with actionable guidance
 
 ***
 
