@@ -20,7 +20,18 @@
       "Bash(./kubectl-broker --statefulset broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
       "Bash(./kubectl-broker --statefulset broker --namespace 89afbf22-94d7-4ca8-9d3b-6562cfbc8351)",
       "Bash(./kubectl-broker --statefulset nonexistent --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(kubectl plugin:*)",
+      "Bash(cp:*)",
+      "Bash(chmod:*)",
+      "Bash(export PATH=\"$HOME/.kubectl-broker:$PATH\")",
+      "Bash(~/.kubectl-broker/kubectl-broker --help)",
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl plugin list)",
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --help)",
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --discover)",
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --statefulset broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
+      "Bash(make:*)"
     ],
     "deny": []
   }
