@@ -19,7 +19,7 @@ $(BINARY_NAME): $(GO_FILES)
 	go build -o $(BINARY_NAME) ./cmd/kubectl-broker
 	@echo "✅ Build complete: $(BINARY_NAME)"
 
-# Install as kubectl plugin
+# Install as kubectl plugin (standard build)
 .PHONY: install
 install: build
 	@echo "📦 Installing kubectl-broker as kubectl plugin..."
@@ -35,9 +35,26 @@ install: build
 	@echo "   kubectl plugin list | grep broker"
 	@echo "   kubectl broker --help"
 
-# Automated installation with PATH setup
+# Install with optimized build (35MB vs 53MB)
+.PHONY: install-small
+install-small: build-small
+	@echo "📦 Installing optimized kubectl-broker as kubectl plugin..."
+	mkdir -p $(INSTALL_DIR)
+	cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+	@echo "✅ Installed optimized binary to $(INSTALL_DIR)/$(BINARY_NAME)"
+	@echo ""
+	@echo "📝 To complete installation, add to your PATH:"
+	@echo "   export PATH=\"\$$HOME/.kubectl-broker:\$$PATH\""
+	@echo ""
+	@echo "🧪 Test installation:"
+	@echo "   kubectl plugin list | grep broker"
+	@echo "   kubectl broker --help"
+
+# Automated installation with PATH setup (uses install.sh)
 .PHONY: install-auto
-install-auto: install
+install-auto:
+	@echo "🚀 Running automated installation with optimized binary..."
 	@./install.sh
 
 # Clean build artifacts
@@ -146,8 +163,9 @@ help:
 	@echo ""
 	@echo "Available targets:"
 	@echo "  build         Build the binary"
-	@echo "  install       Install as kubectl plugin (manual PATH setup)"
-	@echo "  install-auto  Install with automatic PATH setup"
+	@echo "  install       Install as kubectl plugin (standard build)"
+	@echo "  install-small Install as kubectl plugin (optimized 35MB build)"
+	@echo "  install-auto  Install with automatic PATH setup (uses install.sh)"
 	@echo "  clean         Remove build artifacts"
 	@echo "  uninstall     Remove installed plugin"
 	@echo "  test          Test basic functionality"

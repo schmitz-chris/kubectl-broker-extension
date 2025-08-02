@@ -35,7 +35,8 @@
       "Bash(./kubectl-broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker)",
-      "Bash(go list:*)"
+      "Bash(go list:*)",
+      "Bash(./install.sh)"
     ],
     "deny": []
   }

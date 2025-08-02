@@ -14,9 +14,16 @@ echo "🚀 Installing kubectl-broker as kubectl plugin..."
 # Create installation directory
 mkdir -p "$INSTALL_DIR"
 
-# Build the binary
-echo "📦 Building kubectl-broker..."
-go build -o "$INSTALL_DIR/$BINARY_NAME" ./cmd/kubectl-broker
+# Build the binary with optimization
+echo "📦 Building optimized kubectl-broker..."
+if command -v make >/dev/null 2>&1; then
+    echo "🔧 Using Make for optimized build (35MB vs 53MB)..."
+    make build-small
+    cp "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+else
+    echo "⚠️  Make not found, using fallback build with basic optimization..."
+    CGO_ENABLED=0 go build -ldflags="-w -s" -trimpath -o "$INSTALL_DIR/$BINARY_NAME" ./cmd/kubectl-broker
+fi
 
 # Make it executable
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
@@ -69,5 +76,7 @@ echo "3. Test the plugin: kubectl broker --help"
 echo "4. Discover HiveMQ brokers: kubectl broker --discover"
 echo ""
 echo "💡 Usage examples:"
+echo "   kubectl broker                                              # Uses intelligent defaults"
+echo "   kubectl broker --discover                                   # Find all HiveMQ brokers"
 echo "   kubectl broker --pod broker-0 --namespace my-namespace"
 echo "   kubectl broker --statefulset broker --namespace my-namespace"
