@@ -13,7 +13,7 @@ func (k *K8sClient) DiscoverBrokers(ctx context.Context) error {
 	fmt.Println("Discovering broker pods across all accessible namespaces...")
 
 	// Get all namespaces
-	namespaces, err := k.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	namespaces, err := k.coreClient.Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
@@ -29,7 +29,7 @@ func (k *K8sClient) DiscoverBrokers(ctx context.Context) error {
 		}
 
 		// Look for pods with "broker" in the name or labels
-		pods, err := k.clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+		pods, err := k.coreClient.Pods(ns.Name).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			// Skip namespaces we can't access
 			continue
@@ -64,7 +64,7 @@ func (k *K8sClient) DiscoverBrokers(ctx context.Context) error {
 				continue
 			}
 
-			statefulSets, err := k.clientset.AppsV1().StatefulSets(ns.Name).List(ctx, metav1.ListOptions{})
+			statefulSets, err := k.appsClient.StatefulSets(ns.Name).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				continue
 			}

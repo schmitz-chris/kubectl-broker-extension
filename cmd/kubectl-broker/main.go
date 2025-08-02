@@ -144,7 +144,7 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 	}
 	
 	// 6. Establish port-forward connection and perform health check
-	pf := pkg.NewPortForwarder(k8sClient.GetConfig(), k8sClient.GetClientset())
+	pf := pkg.NewPortForwarder(k8sClient.GetConfig(), k8sClient.GetRESTClient())
 	if err := pf.ForwardPort(ctx, pod, healthPort, localPort); err != nil {
 		return pkg.EnhanceError(err, "port forwarding")
 	}

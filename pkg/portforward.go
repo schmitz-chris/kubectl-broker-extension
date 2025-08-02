@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
@@ -18,22 +17,22 @@ import (
 
 // PortForwarder manages port-forwarding to a Kubernetes pod
 type PortForwarder struct {
-	config    *rest.Config
-	clientset *kubernetes.Clientset
+	config     *rest.Config
+	restClient rest.Interface
 }
 
 // NewPortForwarder creates a new port forwarder
-func NewPortForwarder(config *rest.Config, clientset *kubernetes.Clientset) *PortForwarder {
+func NewPortForwarder(config *rest.Config, restClient rest.Interface) *PortForwarder {
 	return &PortForwarder{
-		config:    config,
-		clientset: clientset,
+		config:     config,
+		restClient: restClient,
 	}
 }
 
 // ForwardPort establishes a port-forward connection and performs a health check
 func (pf *PortForwarder) ForwardPort(ctx context.Context, pod *v1.Pod, remotePort int32, localPort int) error {
 	// Build the port-forward URL
-	req := pf.clientset.CoreV1().RESTClient().Post().
+	req := pf.restClient.Post().
 		Resource("pods").
 		Namespace(pod.Namespace).
 		Name(pod.Name).
@@ -103,7 +102,7 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, pod *v1.Pod, remotePor
 // PerformHealthCheckOnly performs a health check without interactive mode
 func (pf *PortForwarder) PerformHealthCheckOnly(ctx context.Context, pod *v1.Pod, remotePort int32, localPort int) error {
 	// Build the port-forward URL
-	req := pf.clientset.CoreV1().RESTClient().Post().
+	req := pf.restClient.Post().
 		Resource("pods").
 		Namespace(pod.Namespace).
 		Name(pod.Name).

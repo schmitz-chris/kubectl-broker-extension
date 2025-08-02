@@ -76,6 +76,26 @@ release:
 	CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_NAME) ./cmd/kubectl-broker
 	@echo "✅ Release build complete"
 
+# Small build with maximum optimization
+.PHONY: build-small
+build-small:
+	@echo "🔧 Building with maximum size optimization..."
+	CGO_ENABLED=0 go build -ldflags="-w -s -X 'main.version=$(shell git describe --tags --always)'" -trimpath -o $(BINARY_NAME) ./cmd/kubectl-broker
+	@echo "✅ Small build complete"
+
+# UPX compressed build (requires UPX to be installed)
+.PHONY: build-upx
+build-upx: build-small
+	@echo "📦 Compressing binary with UPX..."
+	@if command -v upx >/dev/null 2>&1; then \
+		upx --best --lzma $(BINARY_NAME); \
+		echo "✅ UPX compression complete"; \
+	else \
+		echo "⚠️  UPX not found. Install with: brew install upx (macOS) or apt-get install upx (Linux)"; \
+		echo "📏 Binary size without UPX compression:"; \
+		ls -lh $(BINARY_NAME); \
+	fi
+
 # Cross-compile for multiple platforms
 .PHONY: cross-compile
 cross-compile:
@@ -133,6 +153,8 @@ help:
 	@echo "  test          Test basic functionality"
 	@echo "  dev           Build with race detector"
 	@echo "  release       Build optimized release version"
+	@echo "  build-small   Build with maximum size optimization"
+	@echo "  build-upx     Build with UPX compression (smallest)"
 	@echo "  cross-compile Build for multiple platforms"
 	@echo "  test-go       Run Go tests"
 	@echo "  fmt           Format Go code"

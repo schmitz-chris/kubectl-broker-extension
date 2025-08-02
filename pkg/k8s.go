@@ -9,16 +9,21 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
 
-// K8sClient wraps the Kubernetes clientset with helper methods
+// K8sClient wraps specific Kubernetes client interfaces with helper methods
 type K8sClient struct {
-	clientset *kubernetes.Clientset
-	config    *rest.Config
+	coreClient *corev1client.CoreV1Client
+	appsClient *appsv1client.AppsV1Client
+	restClient rest.Interface
+	config     *rest.Config
 }
 
 // NewK8sClient creates a new Kubernetes client using kubeconfig (supports kubie)
@@ -81,21 +86,39 @@ func NewK8sClient() (*K8sClient, error) {
 		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
 
-	// Create clientset
-	clientset, err := kubernetes.NewForConfig(config)
+	// Create specific typed clients instead of full clientset
+	coreClient, err := corev1client.NewForConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes clientset: %w", err)
+		return nil, fmt.Errorf("failed to create CoreV1 client: %w", err)
+	}
+
+	appsClient, err := appsv1client.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AppsV1 client: %w", err)
+	}
+
+	// Create REST client for port-forwarding using CoreV1 configuration
+	coreConfig := *config
+	coreConfig.APIPath = "/api"
+	coreConfig.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
+	coreConfig.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	
+	restClient, err := rest.RESTClientFor(&coreConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create REST client: %w", err)
 	}
 
 	return &K8sClient{
-		clientset: clientset,
-		config:    config,
+		coreClient: coreClient,
+		appsClient: appsClient,
+		restClient: restClient,
+		config:     config,
 	}, nil
 }
 
 // GetPod retrieves a pod by name and namespace
 func (k *K8sClient) GetPod(ctx context.Context, namespace, name string) (*v1.Pod, error) {
-	pod, err := k.clientset.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+	pod, err := k.coreClient.Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod %s in namespace %s: %w", name, namespace, err)
 	}
@@ -129,14 +152,14 @@ func (k *K8sClient) GetConfig() *rest.Config {
 	return k.config
 }
 
-// GetClientset returns the Kubernetes clientset
-func (k *K8sClient) GetClientset() *kubernetes.Clientset {
-	return k.clientset
+// GetRESTClient returns the REST client for port-forwarding
+func (k *K8sClient) GetRESTClient() rest.Interface {
+	return k.restClient
 }
 
 // GetStatefulSet retrieves a StatefulSet by name and namespace
 func (k *K8sClient) GetStatefulSet(ctx context.Context, namespace, name string) (*appsv1.StatefulSet, error) {
-	sts, err := k.clientset.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	sts, err := k.appsClient.StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get StatefulSet %s in namespace %s: %w", name, namespace, err)
 	}
@@ -155,7 +178,7 @@ func (k *K8sClient) GetPodsFromStatefulSet(ctx context.Context, namespace, state
 	labelSelector := metav1.FormatLabelSelector(sts.Spec.Selector)
 	
 	// Get pods matching the label selector
-	podList, err := k.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+	podList, err := k.coreClient.Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector,
 	})
 	if err != nil {

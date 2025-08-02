@@ -89,7 +89,7 @@ func (k *K8sClient) performSinglePodHealthCheck(ctx context.Context, pod *v1.Pod
 	
 	// 4. Perform health check with port-forwarding
 	startTime := time.Now()
-	pf := NewPortForwarder(k.config, k.clientset)
+	pf := NewPortForwarder(k.config, k.restClient)
 	
 	// Use a separate context with timeout for each health check
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
