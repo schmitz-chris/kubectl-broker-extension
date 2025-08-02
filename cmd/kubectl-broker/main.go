@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	podName   string
-	namespace string
-	port      int
-	discover  bool
+	statefulSetName string
+	podName        string
+	namespace      string
+	port           int
+	discover       bool
 )
 
 func main() {
@@ -28,16 +29,20 @@ the health status of broker nodes via port-forwarding.`,
 	}
 
 	// Add flags
-	rootCmd.Flags().StringVar(&podName, "pod", "", "Name of the pod to check (required)")
-	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the pod (required)")
+	rootCmd.Flags().StringVar(&statefulSetName, "statefulset", "", "Name of the StatefulSet to check (required for cluster mode)")
+	rootCmd.Flags().StringVar(&podName, "pod", "", "Name of the pod to check (required for single pod mode)")
+	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace (required)")
 	rootCmd.Flags().IntVarP(&port, "port", "p", 0, "Port number to use for health check (overrides auto-discovery)")
 	rootCmd.Flags().BoolVar(&discover, "discover", false, "Discover available broker pods and namespaces")
 
 	// Mark required flags conditionally
 	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		if !discover {
-			if podName == "" {
-				return fmt.Errorf("--pod is required when not using --discover")
+			if statefulSetName == "" && podName == "" {
+				return fmt.Errorf("either --statefulset or --pod is required when not using --discover")
+			}
+			if statefulSetName != "" && podName != "" {
+				return fmt.Errorf("cannot use both --statefulset and --pod flags together")
 			}
 			if namespace == "" {
 				return fmt.Errorf("--namespace is required when not using --discover")
@@ -66,6 +71,35 @@ func runHealthCheck(cmd *cobra.Command, args []string) error {
 		return k8sClient.DiscoverBrokers(ctx)
 	}
 	
+	// Handle StatefulSet mode (Phase 2)
+	if statefulSetName != "" {
+		return runStatefulSetHealthCheck(ctx, k8sClient)
+	}
+	
+	// Handle single pod mode (Phase 1)
+	return runSinglePodHealthCheck(ctx, k8sClient)
+}
+
+func runStatefulSetHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) error {
+	fmt.Printf("Checking health of StatefulSet %s in namespace %s\n", statefulSetName, namespace)
+	
+	// Get all pods from the StatefulSet
+	pods, err := k8sClient.GetPodsFromStatefulSet(ctx, namespace, statefulSetName)
+	if err != nil {
+		return pkg.EnhanceError(err, fmt.Sprintf("StatefulSet %s in namespace %s", statefulSetName, namespace))
+	}
+	
+	if len(pods) == 0 {
+		return fmt.Errorf("no pods found for StatefulSet %s in namespace %s", statefulSetName, namespace)
+	}
+	
+	fmt.Printf("Found %d pods in StatefulSet\n\n", len(pods))
+	
+	// Perform concurrent health checks
+	return k8sClient.PerformConcurrentHealthChecks(ctx, pods, int32(port))
+}
+
+func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) error {
 	fmt.Printf("Checking health of pod %s in namespace %s\n", podName, namespace)
 	
 	// 2. Get the pod

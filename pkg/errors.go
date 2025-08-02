@@ -16,6 +16,9 @@ func EnhanceError(err error, context string) error {
 
 	// Handle Kubernetes API errors
 	if apierrors.IsNotFound(err) {
+		if strings.Contains(context, "StatefulSet") {
+			return fmt.Errorf("%s not found. Please check the StatefulSet name and namespace are correct. Use --discover to find available StatefulSets", context)
+		}
 		return fmt.Errorf("%s not found. Please check the name and namespace are correct", context)
 	}
 

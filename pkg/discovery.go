@@ -48,7 +48,11 @@ func (k *K8sClient) DiscoverBrokers(ctx context.Context) error {
 			for _, podName := range brokerPods {
 				fmt.Printf("  - %s\n", podName)
 			}
-			fmt.Printf("  Command: ./kubectl-broker --pod %s --namespace %s\n\n", brokerPods[0], ns.Name)
+			fmt.Printf("  Single pod: ./kubectl-broker --pod %s --namespace %s\n", brokerPods[0], ns.Name)
+			if len(brokerPods) > 1 {
+				fmt.Printf("  All pods:   ./kubectl-broker --statefulset broker --namespace %s\n", ns.Name)
+			}
+			fmt.Println()
 		}
 	}
 
@@ -71,7 +75,8 @@ func (k *K8sClient) DiscoverBrokers(ctx context.Context) error {
 					fmt.Printf("StatefulSet: %s (namespace: %s)\n", sts.Name, ns.Name)
 					if sts.Status.Replicas > 0 {
 						fmt.Printf("  Example pod: %s-0\n", sts.Name)
-						fmt.Printf("  Command: ./kubectl-broker --pod %s-0 --namespace %s\n\n", sts.Name, ns.Name)
+						fmt.Printf("  Single pod: ./kubectl-broker --pod %s-0 --namespace %s\n", sts.Name, ns.Name)
+						fmt.Printf("  All pods:   ./kubectl-broker --statefulset %s --namespace %s\n\n", sts.Name, ns.Name)
 					}
 				}
 			}
