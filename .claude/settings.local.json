@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go mod:*)",
+      "Bash(./kubectl-broker --help)",
+      "Bash(./kubectl-broker --discover)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(./kubectl-broker --pod broker-0 --namespace default)",
+      "Bash(./kubectl-broker --pod broker-0 --namespace 4f1ba66d-78df-4d8b-9ffa-ff20f0c846b6)",
+      "Bash(kubectl config:*)",
+      "Bash(./kubectl-broker --pod broker-0 --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8)",
+      "Bash(echo:*)"
+    ],
+    "deny": []
+  }
+}
