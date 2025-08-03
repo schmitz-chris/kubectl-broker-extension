@@ -84,12 +84,12 @@ the health status of broker nodes via port-forwarding.`,
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func runHealthCheck(cmd *cobra.Command, args []string) error {
+func runHealthCheck(_ *cobra.Command, _ []string) error {
 	ctx := context.Background()
 
 	// 1. Initialize Kubernetes client
@@ -236,7 +236,7 @@ func getRandomPort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	addr := listener.Addr().(*net.TCPAddr)
 	return addr.Port, nil
