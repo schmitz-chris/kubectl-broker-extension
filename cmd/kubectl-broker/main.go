@@ -59,7 +59,7 @@ the health status of broker nodes via port-forwarding.`,
 			if statefulSetName == "" && podName == "" {
 				// Default to StatefulSet "broker"
 				statefulSetName = "broker"
-				if !outputJSON && !outputRaw {
+				if !outputJSON && !outputRaw && detailed {
 					fmt.Printf("Using default StatefulSet: %s\n", statefulSetName)
 				}
 			}
@@ -75,7 +75,7 @@ the health status of broker nodes via port-forwarding.`,
 					return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>", err)
 				}
 				namespace = defaultNamespace
-				if !outputJSON && !outputRaw {
+				if !outputJSON && !outputRaw && detailed {
 					fmt.Printf("Using namespace from context: %s\n", namespace)
 				}
 			}
@@ -93,7 +93,7 @@ func runHealthCheck(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	// 1. Initialize Kubernetes client
-	k8sClient, err := pkg.NewK8sClient()
+	k8sClient, err := pkg.NewK8sClient(detailed && !outputJSON && !outputRaw)
 	if err != nil {
 		return pkg.EnhanceError(err, "Kubernetes client initialization")
 	}
@@ -113,7 +113,7 @@ func runHealthCheck(cmd *cobra.Command, args []string) error {
 }
 
 func runStatefulSetHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) error {
-	if !outputJSON && !outputRaw {
+	if !outputJSON && !outputRaw && detailed {
 		fmt.Printf("Checking health of StatefulSet %s in namespace %s\n", statefulSetName, namespace)
 	}
 
@@ -127,7 +127,7 @@ func runStatefulSetHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) er
 		return fmt.Errorf("no pods found for StatefulSet %s in namespace %s", statefulSetName, namespace)
 	}
 
-	if !outputJSON && !outputRaw {
+	if !outputJSON && !outputRaw && detailed {
 		fmt.Printf("Found %d pods in StatefulSet\n\n", len(pods))
 	}
 
@@ -145,7 +145,7 @@ func runStatefulSetHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) er
 }
 
 func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) error {
-	if !outputJSON && !outputRaw {
+	if !outputJSON && !outputRaw && detailed {
 		fmt.Printf("Checking health of pod %s in namespace %s\n", podName, namespace)
 	}
 
@@ -164,7 +164,7 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 	var healthPort int32
 	if port > 0 {
 		healthPort = int32(port)
-		if !outputJSON && !outputRaw {
+		if !outputJSON && !outputRaw && detailed {
 			fmt.Printf("Using specified port: %d\n", healthPort)
 		}
 	} else {
@@ -172,7 +172,7 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 		if err != nil {
 			return err
 		}
-		if !outputJSON && !outputRaw {
+		if !outputJSON && !outputRaw && detailed {
 			fmt.Printf("Discovered health port: %d\n", healthPort)
 		}
 	}

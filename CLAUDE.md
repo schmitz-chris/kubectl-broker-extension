@@ -57,7 +57,7 @@ kubectl broker --pod broker-0 --namespace production
 
 # Enhanced health API analysis (Phase 5)
 kubectl broker --json                              # Raw JSON output for external tools
-kubectl broker --detailed                          # Detailed component breakdown
+kubectl broker --detailed                          # Detailed component breakdown + debug info
 kubectl broker --endpoint liveness                 # Specific health endpoint
 kubectl broker --statefulset broker --raw          # Unprocessed response
 kubectl broker --pod broker-0 --endpoint readiness # Readiness check
@@ -98,6 +98,7 @@ The tool has completed all planned development phases:
 - Support for different health endpoints: health, liveness, readiness
 - Rich diagnostic information showing component-level health status
 - External tool integration with JSON output for monitoring pipelines
+- Clean minimal output by default, verbose debug info only with `--detailed` flag
 
 ### 🚀 Binary Size Optimization (Completed)
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports
@@ -137,10 +138,33 @@ The tool now provides comprehensive analysis of HiveMQ's health API responses:
   - **Detailed**: Component-by-component breakdown with details
   - **Raw**: Unprocessed responses for debugging
 
-Example enhanced output:
+Example clean output (normal usage):
 ```
+POD NAME  STATUS   DETAILS
+--------  ------   -------
+broker-0  HEALTHY  Overall: [UP], Components: 8 total, 8 healthy
+broker-1  HEALTHY  Overall: [UP], Components: 8 total, 8 healthy
+
+Summary: 2/2 pods healthy
+```
+
+Example detailed output (with `--detailed` flag):
+```
+Using default kubeconfig: /Users/chris/.kube/config
+Using cluster: arn:aws:eks:eu-central-1:...
+[... all debug information ...]
+
 POD NAME  STATUS   HEALTH PORT  LOCAL PORT  RESPONSE TIME  DETAILS
 --------  ------   -----------  ----------  -------------  -------
 broker-0  HEALTHY  9090         54740       130ms          Overall: [UP], Components: 8 total, 8 healthy
 broker-1  HEALTHY  9090         54741       113ms          Overall: [UP], Components: 8 total, 8 healthy
+
+Summary: 2/2 pods healthy
+
+Pod: broker-0
+Overall Health: [UP]
+Components:
+  - cluster: [UP] (cluster-id: 2FVes, cluster-nodes: [dZIGZ fuD1n], ...)
+  - extensions: [UP]
+  [... detailed component breakdown ...]
 ```

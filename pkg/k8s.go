@@ -10,9 +10,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/scheme"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -27,21 +27,27 @@ type K8sClient struct {
 }
 
 // NewK8sClient creates a new Kubernetes client using kubeconfig (supports kubie)
-func NewK8sClient() (*K8sClient, error) {
+func NewK8sClient(showDebug bool) (*K8sClient, error) {
 	// Check for kubie environment variables first
 	var kubeconfig string
 	if kubieConfig := os.Getenv("KUBIE_KUBECONFIG"); kubieConfig != "" {
 		kubeconfig = kubieConfig
-		fmt.Printf("Using kubie kubeconfig: %s\n", kubeconfig)
+		if showDebug {
+			fmt.Printf("Using kubie kubeconfig: %s\n", kubeconfig)
+		}
 	} else if envConfig := os.Getenv("KUBECONFIG"); envConfig != "" {
 		kubeconfig = envConfig
-		fmt.Printf("Using KUBECONFIG env var: %s\n", kubeconfig)
+		if showDebug {
+			fmt.Printf("Using KUBECONFIG env var: %s\n", kubeconfig)
+		}
 	} else {
 		// Fall back to default kubeconfig
 		if home := homedir.HomeDir(); home != "" {
 			kubeconfig = filepath.Join(home, ".kube", "config")
 		}
-		fmt.Printf("Using default kubeconfig: %s\n", kubeconfig)
+		if showDebug {
+			fmt.Printf("Using default kubeconfig: %s\n", kubeconfig)
+		}
 	}
 
 	// Load kubeconfig with context information
@@ -74,11 +80,13 @@ func NewK8sClient() (*K8sClient, error) {
 		return nil, fmt.Errorf("cluster '%s' not found in kubeconfig", context.Cluster)
 	}
 
-	fmt.Printf("Using cluster: %s\n", context.Cluster)
-	fmt.Printf("Server: %s\n", cluster.Server)
-	fmt.Printf("Current context: %s\n", currentContext)
-	fmt.Printf("Namespace: %s\n", context.Namespace)
-	fmt.Println()
+	if showDebug {
+		fmt.Printf("Using cluster: %s\n", context.Cluster)
+		fmt.Printf("Server: %s\n", cluster.Server)
+		fmt.Printf("Current context: %s\n", currentContext)
+		fmt.Printf("Namespace: %s\n", context.Namespace)
+		fmt.Println()
+	}
 
 	// Load config
 	config, err := kubeConfig.ClientConfig()
@@ -102,7 +110,7 @@ func NewK8sClient() (*K8sClient, error) {
 	coreConfig.APIPath = "/api"
 	coreConfig.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
 	coreConfig.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
-	
+
 	restClient, err := rest.RESTClientFor(&coreConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create REST client: %w", err)
@@ -173,10 +181,10 @@ func (k *K8sClient) GetPodsFromStatefulSet(ctx context.Context, namespace, state
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create label selector from StatefulSet's selector
 	labelSelector := metav1.FormatLabelSelector(sts.Spec.Selector)
-	
+
 	// Get pods matching the label selector
 	podList, err := k.coreClient.Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector,
@@ -184,13 +192,13 @@ func (k *K8sClient) GetPodsFromStatefulSet(ctx context.Context, namespace, state
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods for StatefulSet %s: %w", statefulSetName, err)
 	}
-	
+
 	// Convert to slice of pod pointers for easier handling
 	pods := make([]*v1.Pod, 0, len(podList.Items))
 	for i := range podList.Items {
 		pods = append(pods, &podList.Items[i])
 	}
-	
+
 	return pods, nil
 }
 
@@ -238,6 +246,6 @@ func GetDefaultNamespace() (string, error) {
 	if context.Namespace != "" {
 		return context.Namespace, nil
 	}
-	
+
 	return "default", nil
 }

@@ -31,8 +31,6 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 	results := make([]HealthCheckResult, len(pods))
 	var wg sync.WaitGroup
 
-	fmt.Printf("Starting concurrent health checks for %d pods...\n\n", len(pods))
-
 	// Launch a goroutine for each pod
 	for i, pod := range pods {
 		wg.Add(1)
@@ -146,7 +144,7 @@ func (k *K8sClient) displayHealthCheckResults(results []HealthCheckResult, optio
 	}
 
 	// Default tabular output
-	return k.displayTabularResults(results)
+	return k.displayTabularResults(results, options)
 }
 
 // displayJSONResults outputs results as JSON
@@ -199,13 +197,18 @@ func (k *K8sClient) displayDetailedResults(results []HealthCheckResult) error {
 }
 
 // displayTabularResults shows results in tabular format
-func (k *K8sClient) displayTabularResults(results []HealthCheckResult) error {
+func (k *K8sClient) displayTabularResults(results []HealthCheckResult, options health.HealthCheckOptions) error {
 	// Create tabwriter for formatted output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-	// Print header
-	fmt.Fprintln(w, "POD NAME\tSTATUS\tHEALTH PORT\tLOCAL PORT\tRESPONSE TIME\tDETAILS")
-	fmt.Fprintln(w, "--------\t------\t-----------\t----------\t-------------\t-------")
+	// Print header based on detailed mode
+	if options.Detailed {
+		fmt.Fprintln(w, "POD NAME\tSTATUS\tHEALTH PORT\tLOCAL PORT\tRESPONSE TIME\tDETAILS")
+		fmt.Fprintln(w, "--------\t------\t-----------\t----------\t-------------\t-------")
+	} else {
+		fmt.Fprintln(w, "POD NAME\tSTATUS\tDETAILS")
+		fmt.Fprintln(w, "--------\t------\t-------")
+	}
 
 	// Print results
 	healthyCount := 0
@@ -230,13 +233,20 @@ func (k *K8sClient) displayTabularResults(results []HealthCheckResult) error {
 			details = details[:47] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			result.PodName,
-			result.Status,
-			healthPortStr,
-			localPortStr,
-			responseTimeStr,
-			details)
+		if options.Detailed {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				result.PodName,
+				result.Status,
+				healthPortStr,
+				localPortStr,
+				responseTimeStr,
+				details)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\n",
+				result.PodName,
+				result.Status,
+				details)
+		}
 
 		if result.Status == "HEALTHY" {
 			healthyCount++
@@ -249,9 +259,7 @@ func (k *K8sClient) displayTabularResults(results []HealthCheckResult) error {
 	// Print summary
 	fmt.Printf("\nSummary: %d/%d pods healthy\n", healthyCount, len(results))
 
-	if healthyCount == len(results) {
-		fmt.Println("All pods are healthy!")
-	} else {
+	if healthyCount < len(results) {
 		fmt.Printf("%d pods have issues\n", len(results)-healthyCount)
 	}
 
