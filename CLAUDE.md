@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that streamlines health diagnostics for HiveMQ clusters running on Kubernetes. The project has completed all major phases and is fully functional with intelligent defaults, concurrent health checks, and optimized binary size.
+This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that streamlines health diagnostics for HiveMQ clusters running on Kubernetes. The project has completed all major phases (1-5) and is fully functional with intelligent defaults, concurrent health checks, optimized binary size, and enhanced HiveMQ Health API analysis.
 
 ## Project Structure
 
-- `cmd/kubectl-broker/main.go` - Main CLI application with intelligent defaults
+- `cmd/kubectl-broker/main.go` - Main CLI application with intelligent defaults and enhanced health options
 - `pkg/` - Core functionality packages (k8s client, port-forwarding, concurrent health checks)
-- `PLAN.md` - Implementation roadmap (all phases completed)
+- `pkg/health/` - HiveMQ Health API parsing and analysis (Phase 5)
+- `PLAN.md` - Implementation roadmap (all phases completed including Phase 5)
 - `OBJECTS.md` - Example Kubernetes objects and HiveMQ health API responses
 - `Makefile` - Professional build system with size optimization targets
 - `install.sh` - Automated kubectl plugin installation script
@@ -53,6 +54,13 @@ kubectl broker --discover
 # Explicit usage
 kubectl broker --statefulset broker --namespace production
 kubectl broker --pod broker-0 --namespace production
+
+# Enhanced health API analysis (Phase 5)
+kubectl broker --json                              # Raw JSON output for external tools
+kubectl broker --detailed                          # Detailed component breakdown
+kubectl broker --endpoint liveness                 # Specific health endpoint
+kubectl broker --statefulset broker --raw          # Unprocessed response
+kubectl broker --pod broker-0 --endpoint readiness # Readiness check
 ```
 
 ## Architecture
@@ -84,6 +92,13 @@ The tool has completed all planned development phases:
 - Automated installation script with shell detection and PATH management
 - Cross-platform build system with size optimization
 
+### ✅ Phase 5: Enhanced HiveMQ Health API Analysis (Completed)
+- Advanced JSON parsing of HiveMQ health responses with Go structs
+- Multiple output formats: tabular, JSON, raw, detailed component breakdown
+- Support for different health endpoints: health, liveness, readiness
+- Rich diagnostic information showing component-level health status
+- External tool integration with JSON output for monitoring pipelines
+
 ### 🚀 Binary Size Optimization (Completed)
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports
 - Replaced full `kubernetes.Clientset` with specific typed clients (`CoreV1Client`, `AppsV1Client`)
@@ -99,6 +114,7 @@ The tool has completed all planned development phases:
 - **User-Centric Installation**: `~/.kubectl-broker/` directory avoiding system-wide installation
 - **HiveMQ-Specific**: Targets broker StatefulSets with health endpoints on port named "health"
 - **Local Operator Focus**: Designed for diagnostic execution from operator machines
+- **Enhanced Health Analysis**: Comprehensive JSON parsing with multiple output formats for both human operators and external tool integration
 
 ## HiveMQ Integration
 
@@ -107,3 +123,24 @@ The tool is specifically designed for HiveMQ broker clusters where:
 - Each pod exposes a health API endpoint (typically on port 9090)
 - Health checks return JSON status information about cluster state, extensions, and MQTT listeners
 - Multiple broker instances need to be checked individually to get complete cluster health status
+
+### Enhanced Health API Support (Phase 5)
+
+The tool now provides comprehensive analysis of HiveMQ's health API responses:
+
+- **Component Analysis**: Parses and displays status of individual components (cluster, MQTT, extensions, control-center, rest-api, etc.)
+- **Multiple Endpoints**: Supports `/api/v1/health/` (full), `/api/v1/health/liveness` (basic), `/api/v1/health/readiness` (ready to serve)
+- **Status Interpretation**: Understands HiveMQ status values (UP, DOWN, DEGRADED, UNKNOWN, OUT_OF_SERVICE)
+- **Output Formats**: 
+  - **Tabular**: Enhanced with component counts (e.g., "Overall: [UP], Components: 8 total, 8 healthy")
+  - **JSON**: Raw responses for external tool integration (jq, monitoring systems)
+  - **Detailed**: Component-by-component breakdown with details
+  - **Raw**: Unprocessed responses for debugging
+
+Example enhanced output:
+```
+POD NAME  STATUS   HEALTH PORT  LOCAL PORT  RESPONSE TIME  DETAILS
+--------  ------   -----------  ----------  -------------  -------
+broker-0  HEALTHY  9090         54740       130ms          Overall: [UP], Components: 8 total, 8 healthy
+broker-1  HEALTHY  9090         54741       113ms          Overall: [UP], Components: 8 total, 8 healthy
+```
