@@ -51,6 +51,7 @@ type HealthCheckOptions struct {
 	OutputRaw  bool          // output unprocessed response
 	Detailed   bool          // show detailed component breakdown
 	Timeout    time.Duration // timeout for health check requests
+	UseColors  bool          // enable colored output for health status
 }
 
 // Default health check options
@@ -60,4 +61,5 @@ var DefaultHealthCheckOptions = HealthCheckOptions{
 	OutputRaw:  false,
 	Detailed:   false,
 	Timeout:    10 * time.Second,
+	UseColors:  true, // Enable colors by default
 }

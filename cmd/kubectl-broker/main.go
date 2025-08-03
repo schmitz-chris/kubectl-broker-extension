@@ -138,6 +138,7 @@ func runStatefulSetHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) er
 		OutputRaw:  outputRaw,
 		Detailed:   detailed,
 		Timeout:    10 * time.Second,
+		UseColors:  !outputJSON && !outputRaw, // Disable colors for JSON/raw output
 	}
 
 	// Perform concurrent health checks
@@ -190,6 +191,7 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 		OutputRaw:  outputRaw,
 		Detailed:   detailed,
 		Timeout:    10 * time.Second,
+		UseColors:  !outputJSON && !outputRaw, // Disable colors for JSON/raw output
 	}
 
 	// 6. Establish port-forward connection and perform health check
@@ -206,11 +208,11 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 		fmt.Println(string(rawJSON))
 	} else if options.Detailed && parsedHealth != nil {
 		fmt.Printf("Pod: %s\n", pod.Name)
-		fmt.Printf("Overall Health: %s\n", health.FormatHealthStatus(parsedHealth.OverallStatus))
+		fmt.Printf("Overall Health: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
 		if len(parsedHealth.ComponentDetails) > 0 {
 			fmt.Println("Components:")
 			for _, comp := range parsedHealth.ComponentDetails {
-				fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatus(comp.Status))
+				fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatusWithColor(comp.Status, options.UseColors))
 				if comp.Details != "" {
 					fmt.Printf(" (%s)", comp.Details)
 				}
@@ -220,8 +222,8 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 	} else {
 		// Standard output
 		if parsedHealth != nil {
-			fmt.Printf("Health check successful: %s\n", health.FormatHealthStatus(parsedHealth.OverallStatus))
-			fmt.Printf("Summary: %s\n", health.GetHealthSummary(parsedHealth))
+			fmt.Printf("Health check successful: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
+			fmt.Printf("Summary: %s\n", health.GetHealthSummaryWithColor(parsedHealth, options.UseColors))
 		} else {
 			fmt.Println("Health check completed")
 		}

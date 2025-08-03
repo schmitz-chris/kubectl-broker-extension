@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 // ParseHealthResponse parses a HiveMQ health API JSON response
@@ -74,20 +76,45 @@ func GetHealthEndpointPath(endpoint string) string {
 
 // FormatHealthStatus returns a formatted string representation of health status
 func FormatHealthStatus(status HealthStatus) string {
+	return FormatHealthStatusWithColor(status, false)
+}
+
+// FormatHealthStatusWithColor returns a formatted string representation of health status with optional colors
+func FormatHealthStatusWithColor(status HealthStatus, enableColors bool) string {
+	var text string
 	switch status {
 	case StatusUP:
-		return "[UP]"
+		text = "[UP]"
+		if enableColors {
+			return color.New(color.FgGreen, color.Bold).Sprint(text)
+		}
 	case StatusDOWN:
-		return "[DOWN]"
+		text = "[DOWN]"
+		if enableColors {
+			return color.New(color.FgRed, color.Bold).Sprint(text)
+		}
 	case StatusDEGRADED:
-		return "[DEGRADED]"
+		text = "[DEGRADED]"
+		if enableColors {
+			return color.New(color.FgYellow, color.Bold).Sprint(text)
+		}
 	case StatusUNKNOWN:
-		return "[UNKNOWN]"
+		text = "[UNKNOWN]"
+		if enableColors {
+			return color.New(color.FgWhite).Sprint(text)
+		}
 	case StatusOUTOFSERVICE:
-		return "[OUT_OF_SERVICE]"
+		text = "[OUT_OF_SERVICE]"
+		if enableColors {
+			return color.New(color.FgMagenta).Sprint(text)
+		}
 	default:
-		return fmt.Sprintf("[%s]", string(status))
+		text = fmt.Sprintf("[%s]", string(status))
+		if enableColors {
+			return color.New(color.FgWhite).Sprint(text)
+		}
 	}
+	return text
 }
 
 // IsHealthy returns true if the health status indicates a healthy state
@@ -97,12 +124,17 @@ func IsHealthy(status HealthStatus) bool {
 
 // GetHealthSummary returns a human-readable summary of parsed health data
 func GetHealthSummary(parsed *ParsedHealthData) string {
+	return GetHealthSummaryWithColor(parsed, false)
+}
+
+// GetHealthSummaryWithColor returns a human-readable summary of parsed health data with optional colors
+func GetHealthSummaryWithColor(parsed *ParsedHealthData, enableColors bool) string {
 	if parsed.ComponentCount == 0 {
-		return fmt.Sprintf("Overall: %s", FormatHealthStatus(parsed.OverallStatus))
+		return fmt.Sprintf("Overall: %s", FormatHealthStatusWithColor(parsed.OverallStatus, enableColors))
 	}
 
 	summary := fmt.Sprintf("Overall: %s, Components: %d total",
-		FormatHealthStatus(parsed.OverallStatus), parsed.ComponentCount)
+		FormatHealthStatusWithColor(parsed.OverallStatus, enableColors), parsed.ComponentCount)
 
 	if parsed.HealthyComponents > 0 {
 		summary += fmt.Sprintf(", %d healthy", parsed.HealthyComponents)

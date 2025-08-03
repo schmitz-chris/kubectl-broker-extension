@@ -55,12 +55,12 @@ kubectl broker --discover
 kubectl broker --statefulset broker --namespace production
 kubectl broker --pod broker-0 --namespace production
 
-# Enhanced health API analysis (Phase 5)
-kubectl broker --json                              # Raw JSON output for external tools
-kubectl broker --detailed                          # Detailed component breakdown + debug info
-kubectl broker --endpoint liveness                 # Specific health endpoint
-kubectl broker --statefulset broker --raw          # Unprocessed response
-kubectl broker --pod broker-0 --endpoint readiness # Readiness check
+# Enhanced health API analysis (Phase 5) with color-coded status indicators
+kubectl broker --json                              # Raw JSON output for external tools (colors disabled)
+kubectl broker --detailed                          # Detailed component breakdown + debug info (colors enabled)
+kubectl broker --endpoint liveness                 # Specific health endpoint with colored status
+kubectl broker --statefulset broker --raw          # Unprocessed response (colors disabled)
+kubectl broker --pod broker-0 --endpoint readiness # Readiness check with colored indicators
 ```
 
 ## Architecture
@@ -99,6 +99,7 @@ The tool has completed all planned development phases:
 - Rich diagnostic information showing component-level health status
 - External tool integration with JSON output for monitoring pipelines
 - Clean minimal output by default, verbose debug info only with `--detailed` flag
+- **Color-coded health status indicators** for improved visual recognition of broker states
 
 ### 🚀 Binary Size Optimization (Completed)
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports
@@ -139,15 +140,22 @@ The tool now provides comprehensive analysis of HiveMQ's health API responses:
   - **Detailed**: Component-by-component breakdown with details
   - **Raw**: Unprocessed responses for debugging
 
-Example clean output (normal usage):
+Example clean output (normal usage with color-coded status):
 ```
 POD NAME  STATUS   DETAILS
 --------  ------   -------
-broker-0  HEALTHY  Overall: [UP], Components: 8 total, 8 healthy
-broker-1  HEALTHY  Overall: [UP], Components: 8 total, 8 healthy
+broker-0  HEALTHY  Overall: [UP], Components: 8 total, 8 healthy    # [UP] shown in green
+broker-1  HEALTHY  Overall: [UP], Components: 8 total, 8 healthy    # [UP] shown in green
 
 Summary: 2/2 pods healthy
 ```
+
+**Color Scheme:**
+- `[UP]`: Green + Bold (healthy status)
+- `[DOWN]`: Red + Bold (critical/failed status)  
+- `[DEGRADED]`: Yellow + Bold (warning/degraded status)
+- `[UNKNOWN]`: White (unclear status)
+- `[OUT_OF_SERVICE]`: Magenta (intentionally offline)
 
 Example detailed output (with `--detailed` flag):
 ```

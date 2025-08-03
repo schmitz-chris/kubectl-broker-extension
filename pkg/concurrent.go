@@ -113,10 +113,10 @@ func (k *K8sClient) performSinglePodHealthCheck(ctx context.Context, pod *v1.Pod
 	// Set status based on parsed health data
 	if parsedHealth != nil && health.IsHealthy(parsedHealth.OverallStatus) {
 		result.Status = "HEALTHY"
-		result.Details = health.GetHealthSummary(parsedHealth)
+		result.Details = health.GetHealthSummaryWithColor(parsedHealth, options.UseColors)
 	} else if parsedHealth != nil {
 		result.Status = string(parsedHealth.OverallStatus)
-		result.Details = health.GetHealthSummary(parsedHealth)
+		result.Details = health.GetHealthSummaryWithColor(parsedHealth, options.UseColors)
 	} else {
 		// Raw output mode
 		result.Status = "RESPONSE_RECEIVED"
@@ -140,7 +140,7 @@ func (k *K8sClient) displayHealthCheckResults(results []HealthCheckResult, optio
 
 	// Handle detailed mode
 	if options.Detailed {
-		return k.displayDetailedResults(results)
+		return k.displayDetailedResults(results, options)
 	}
 
 	// Default tabular output
@@ -170,18 +170,18 @@ func (k *K8sClient) displayRawResults(results []HealthCheckResult) error {
 }
 
 // displayDetailedResults shows detailed component breakdown
-func (k *K8sClient) displayDetailedResults(results []HealthCheckResult) error {
+func (k *K8sClient) displayDetailedResults(results []HealthCheckResult, options health.HealthCheckOptions) error {
 	for _, result := range results {
 		fmt.Printf("Pod: %s\n", result.PodName)
 		fmt.Printf("Status: %s\n", result.Status)
 		fmt.Printf("Response Time: %v\n", result.ResponseTime.Round(time.Millisecond))
 
 		if result.ParsedHealth != nil {
-			fmt.Printf("Overall Health: %s\n", health.FormatHealthStatus(result.ParsedHealth.OverallStatus))
+			fmt.Printf("Overall Health: %s\n", health.FormatHealthStatusWithColor(result.ParsedHealth.OverallStatus, options.UseColors))
 			if len(result.ParsedHealth.ComponentDetails) > 0 {
 				fmt.Println("Components:")
 				for _, comp := range result.ParsedHealth.ComponentDetails {
-					fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatus(comp.Status))
+					fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatusWithColor(comp.Status, options.UseColors))
 					if comp.Details != "" {
 						fmt.Printf(" (%s)", comp.Details)
 					}
@@ -229,8 +229,8 @@ func (k *K8sClient) displayTabularResults(results []HealthCheckResult, options h
 		}
 
 		details := result.Details
-		if len(details) > 50 {
-			details = details[:47] + "..."
+		if len(details) > 80 {
+			details = details[:77] + "..."
 		}
 
 		if options.Detailed {
