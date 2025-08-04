@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"time"
 
@@ -179,7 +178,7 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 	}
 
 	// 5. Get a random local port for port-forwarding
-	localPort, err := getRandomPort()
+	localPort, err := pkg.GetRandomPort()
 	if err != nil {
 		return fmt.Errorf("failed to get available local port: %w", err)
 	}
@@ -230,16 +229,4 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 	}
 
 	return nil
-}
-
-// getRandomPort returns a random available port
-func getRandomPort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = listener.Close() }()
-
-	addr := listener.Addr().(*net.TCPAddr)
-	return addr.Port, nil
 }

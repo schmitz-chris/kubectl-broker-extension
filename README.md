@@ -156,13 +156,13 @@ Summary: 3/3 pods healthy
 
 ## Command Line Flags
 
-| Flag | Description | Required | Example |
-|------|-------------|----------|---------|
-| `--discover` | Discover available broker pods and namespaces | No | `kubectl broker --discover` |
-| `--pod` | Name of specific pod to check (single pod mode) | Optional* | `--pod broker-0` |
-| `--statefulset` | Name of StatefulSet to check (cluster mode) | Optional* | `--statefulset broker` |
-| `--namespace, -n` | Kubernetes namespace | Optional** | `--namespace production` |
-| `--port, -p` | Manual port override for health checks | No | `--port 9090` |
+| Flag              | Description                                     | Required   | Example                     |
+|-------------------|-------------------------------------------------|------------|-----------------------------|
+| `--discover`      | Discover available broker pods and namespaces   | No         | `kubectl broker --discover` |
+| `--pod`           | Name of specific pod to check (single pod mode) | Optional*  | `--pod broker-0`            |
+| `--statefulset`   | Name of StatefulSet to check (cluster mode)     | Optional*  | `--statefulset broker`      |
+| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`    |
+| `--port, -p`      | Manual port override for health checks          | No         | `--port 9090`               |
 
 *If neither `--pod` nor `--statefulset` is specified, defaults to `--statefulset broker`  
 **Defaults to current kubectl context namespace. Not required when using `--discover`
@@ -250,10 +250,6 @@ kubectl-broker/
 4. Commit your changes: `git commit -am 'Add feature'`
 5. Push to the branch: `git push origin feature-name`
 6. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 

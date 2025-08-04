@@ -3,6 +3,7 @@ package pkg
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -248,4 +249,16 @@ func GetDefaultNamespace() (string, error) {
 	}
 
 	return "default", nil
+}
+
+// GetRandomPort returns a random available port
+func GetRandomPort() (int, error) {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = listener.Close() }()
+
+	addr := listener.Addr().(*net.TCPAddr)
+	return addr.Port, nil
 }

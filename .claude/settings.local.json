@@ -45,7 +45,12 @@
       "Bash(./kubectl-broker --pod broker-0 --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8 --endpoint readiness)",
       "Bash(./kubectl-broker --pod broker-0 --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8 --raw)",
       "Bash(./kubectl-broker --statefulset broker --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8 --detailed)",
-      "Bash(./kubectl-broker --pod broker-0 --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8 --json)"
+      "Bash(./kubectl-broker --pod broker-0 --namespace 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8 --json)",
+      "Bash(go run:*)",
+      "Bash(rm:*)",
+      "Bash(go fmt:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt:*)"
     ],
     "deny": []
   }

@@ -54,7 +54,7 @@ type HealthCheckOptions struct {
 	UseColors  bool          // enable colored output for health status
 }
 
-// Default health check options
+// DefaultHealthCheckOptions Default health check options
 var DefaultHealthCheckOptions = HealthCheckOptions{
 	Endpoint:   "health",
 	OutputJSON: false,

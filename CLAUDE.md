@@ -38,6 +38,12 @@ make dev           # Build with race detector
 make test          # Test basic functionality
 make check         # Run all code quality checks (fmt, vet, test)
 
+# Direct Go commands (also supported)
+go run cmd/kubectl-broker/main.go    # Run directly during development
+go fmt ./...                         # Format code
+go vet ./...                         # Static analysis
+gofmt -s -w .                       # Standard formatting
+
 # Maintenance
 make clean         # Remove build artifacts  
 make uninstall     # Remove installed plugin
@@ -111,13 +117,14 @@ The tool has completed all planned development phases:
 
 - **Optimized Kubernetes Integration**: Uses specific typed clients (`CoreV1Client`, `AppsV1Client`) instead of full `kubernetes.Clientset` for minimal binary size
 - **Programmatic Port-Forwarding**: Self-contained operation using custom REST client for SPDY connections
-- **Concurrent Architecture**: Goroutines with dynamic port allocation for parallel health checks
+- **Concurrent Architecture**: Goroutines with dynamic port allocation using centralized `GetRandomPort()` utility
 - **Intelligent Defaults**: Context-aware namespace detection and StatefulSet name defaulting
 - **User-Centric Installation**: `~/.kubectl-broker/` directory avoiding system-wide installation
 - **HiveMQ-Specific**: Targets broker StatefulSets with health endpoints on port named "health"
 - **Local Operator Focus**: Designed for diagnostic execution from operator machines
 - **Enhanced Health Analysis**: Comprehensive JSON parsing with multiple output formats for both human operators and external tool integration
-- **Production Code Quality**: Clean, linter-compliant Go code following best practices with proper error handling
+- **Color-Coded Status Display**: Visual health status indicators using `github.com/fatih/color` for improved user experience
+- **Production Code Quality**: Clean, linter-compliant Go code following best practices with proper error handling and deprecation management
 
 ## HiveMQ Integration
 

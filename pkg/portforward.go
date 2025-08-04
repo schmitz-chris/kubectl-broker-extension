@@ -31,6 +31,7 @@ func NewPortForwarder(config *rest.Config, restClient rest.Interface) *PortForwa
 }
 
 // ForwardPort establishes a port-forward connection and performs a health check
+// Deprecated: Use PerformHealthCheckWithOptions instead for better flexibility
 func (pf *PortForwarder) ForwardPort(ctx context.Context, pod *v1.Pod, remotePort int32, localPort int) error {
 	// Build the port-forward URL
 	req := pf.restClient.Post().
@@ -101,6 +102,7 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, pod *v1.Pod, remotePor
 }
 
 // PerformHealthCheckOnly performs a health check without interactive mode
+// Deprecated: Use PerformHealthCheckWithOptions instead for better flexibility
 func (pf *PortForwarder) PerformHealthCheckOnly(ctx context.Context, pod *v1.Pod, remotePort int32, localPort int) error {
 	// Build the port-forward URL
 	req := pf.restClient.Post().
@@ -155,6 +157,7 @@ func (pf *PortForwarder) PerformHealthCheckOnly(ctx context.Context, pod *v1.Pod
 }
 
 // performHealthCheck makes an HTTP request to the health endpoint
+// Deprecated: Use performHealthCheckWithOptions instead
 func (pf *PortForwarder) performHealthCheck(localPort int) error {
 	healthURL := fmt.Sprintf("http://localhost:%d/api/v1/health", localPort)
 
@@ -178,6 +181,7 @@ func (pf *PortForwarder) performHealthCheck(localPort int) error {
 }
 
 // performHealthCheckQuiet makes an HTTP request to the health endpoint without verbose output
+// Deprecated: Use performHealthCheckWithOptions instead
 func (pf *PortForwarder) performHealthCheckQuiet(localPort int) error {
 	healthURL := fmt.Sprintf("http://localhost:%d/api/v1/health", localPort)
 

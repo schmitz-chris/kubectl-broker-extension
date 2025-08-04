@@ -3,7 +3,6 @@ package pkg
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"sync"
 	"text/tabwriter"
@@ -79,7 +78,7 @@ func (k *K8sClient) performSinglePodHealthCheck(ctx context.Context, pod *v1.Pod
 	result.HealthPort = healthPort
 
 	// 3. Get random local port
-	localPort, err := getRandomPort()
+	localPort, err := GetRandomPort()
 	if err != nil {
 		result.Status = "LOCAL_PORT_FAILED"
 		result.Error = err
@@ -264,16 +263,4 @@ func (k *K8sClient) displayTabularResults(results []HealthCheckResult, options h
 	}
 
 	return nil
-}
-
-// getRandomPort returns a random available port (helper function)
-func getRandomPort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-
-	addr := listener.Addr().(*net.TCPAddr)
-	return addr.Port, nil
 }

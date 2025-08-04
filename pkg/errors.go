@@ -68,10 +68,3 @@ func ValidatePodStatus(pod *v1.Pod) error {
 		return fmt.Errorf("pod '%s' has unknown status: %s", pod.Name, pod.Status.Phase)
 	}
 }
-
-// CheckKubeconfig validates that kubeconfig is accessible and has a current context
-func CheckKubeconfig() error {
-	// This is a simplified check - in a real implementation, you might want to
-	// use clientcmd.LoadFromFile to validate the kubeconfig more thoroughly
-	return nil
-}
