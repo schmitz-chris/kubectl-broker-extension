@@ -33,94 +33,107 @@ This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI
 
 ---
 
-## New Phase 5: Enhanced Health API Analysis 🚧 IN PROGRESS
+## Phase 5: Enhanced Health API Analysis ✅ COMPLETED
+
+### Implementation Completed
+- ✅ Parse and analyze HiveMQ health JSON responses for detailed diagnostics
+- ✅ Create Go structs for HiveMQ health JSON structure in `pkg/health/`
+- ✅ Parse `status` field (UP, DOWN, DEGRADED, UNKNOWN, OUT_OF_SERVICE)
+- ✅ Extract `components` section for detailed component health
+- ✅ Parse `details` section for additional diagnostic information
+
+### Enhanced Output Formats ✅ COMPLETED
+- ✅ Add `--json` flag for raw JSON output (machine-parseable for external tools)
+- ✅ Add `--raw` flag for unprocessed health endpoint responses
+- ✅ Enhanced table format showing parsed health status instead of "HEALTHY"
+- ✅ Color-coded status indicators: [UP], [DOWN], [DEGRADED], [UNKNOWN]
+- ✅ Component-specific details in detailed mode
+
+### Multiple Health Endpoints ✅ COMPLETED
+- ✅ System health `/api/v1/health/` (full health information)
+- ✅ Liveness check `/api/v1/health/liveness` (basic availability)
+- ✅ Readiness check `/api/v1/health/readiness` (ready to serve traffic)
+- ✅ Add `--endpoint` flag to specify which health endpoint to query
+
+### Advanced Diagnostics Mode ✅ COMPLETED
+- ✅ Add `--detailed` flag for expanded component breakdown
+- ✅ Enhanced error reporting with actionable guidance based on health status
+- ✅ Component-specific health details (Cluster, MQTT, Extensions)
+- ✅ Support for multiple output formats (table, json, raw)
+- ✅ Color-coded health status indicators for improved visual recognition
+
+---
+
+## Phase 6: Subcommand Architecture ✅ COMPLETED
+
+### Goal
+Transform the single-purpose health checker into a comprehensive HiveMQ cluster management tool with multiple commands and extensible architecture.
 
 ### Current Limitations
-- Simple HTTP GET to `/api/v1/health` endpoint only
-- Only checks HTTP 200 status, no JSON parsing or analysis
-- Basic "HEALTHY/FAILED" output without diagnostic details
-- Missing rich health information that HiveMQ Health API provides
+- Tool serves only one purpose (health checking)
+- No structure for additional HiveMQ management features
+- Limited extensibility for future cluster operations
 
-### Phase 5.1: Health Response Parsing
-**Goal:** Parse and analyze HiveMQ health JSON responses for detailed diagnostics
-
-**Implementation:**
-- Create Go structs for HiveMQ health JSON structure
-- Parse `status` field (UP, DOWN, DEGRADED, UNKNOWN, OUT_OF_SERVICE)
-- Extract `components` section for detailed component health
-- Parse `details` section for additional diagnostic information
-
-### Phase 5.2: Enhanced Output Formats
-**Goal:** Provide multiple output formats for different use cases
+### Phase 6.1: Command Restructuring ✅ COMPLETED
+**Goal:** Implement subcommand-based CLI architecture
 
 **Implementation:**
-- Add `--json` flag for raw JSON output (machine-parseable for external tools)
-- Add `--raw` flag for unprocessed health endpoint responses
-- Enhanced table format showing parsed health status instead of "HEALTHY"
-- Status indicators: [UP], [DOWN], [DEGRADED], [UNKNOWN] (no emojis)
-- Component-specific details in detailed mode
+- ✅ Restructure main.go to use parent command without direct functionality
+- ✅ Create `status` subcommand containing current health check functionality
+- ✅ Create `backup` subcommand framework (placeholder implementation)
+- ✅ Root command shows available subcommands when called without arguments
 
-### Phase 5.3: Multiple Health Endpoints
-**Goal:** Support different HiveMQ health endpoints for specific diagnostics
-
-**Implementation:**
-- System health `/api/v1/health/` (current implementation)
-- Liveness check `/api/v1/health/liveness` (basic availability)
-- Readiness check `/api/v1/health/readiness` (ready to serve traffic)
-- Add `--endpoint` flag to specify which health endpoint to query
-
-### Phase 5.4: Advanced Diagnostics Mode
-**Goal:** Provide detailed component analysis and enhanced error reporting
+### Phase 6.2: Command Separation ✅ COMPLETED
+**Goal:** Clean separation of concerns between different tool functions
 
 **Implementation:**
-- Add `--detailed` flag for expanded component breakdown
-- Enhanced error reporting with actionable guidance based on health status
-- Component-specific health details (Cluster, MQTT, Extensions)
-- Support for multiple output formats (table, json, raw)
+- ✅ `cmd/kubectl-broker/main.go` - Root command and subcommand registration
+- ✅ `cmd/kubectl-broker/status.go` - Status/health checking functionality
+- ✅ `cmd/kubectl-broker/backup.go` - Backup operations (framework only)
+- ✅ Maintain all existing flags and functionality for status command
 
-### Implementation Strategy
-- Extend `HealthCheckResult` struct with parsed health data and raw JSON
-- Create new `pkg/health` package for HiveMQ-specific health response parsing
-- Add CLI flags: `--json`, `--raw`, `--detailed`, `--endpoint`
-- Maintain backward compatibility with current simple health checks
-- Update concurrent health check functions to support new analysis
-
-### Expected Usage Examples
+### Usage Examples
 ```bash
-# Current simple usage (unchanged)
+# Show available commands
 kubectl broker
 
-# Raw JSON output for external parsing
-kubectl broker --json
+# Health status checking (current functionality)
+kubectl broker status
+kubectl broker status --statefulset broker --namespace production --detailed
+kubectl broker status --json --endpoint liveness
 
-# Detailed component analysis
-kubectl broker --detailed
-
-# Specific health endpoint
-kubectl broker --endpoint liveness
-
-# Combined options
-kubectl broker --json --endpoint readiness --detailed
+# Future backup functionality
+kubectl broker backup --statefulset broker --namespace production
+kubectl broker backup --output-dir ./backups
 ```
 
+### Future Command Roadmap
+- `kubectl broker backup` - Create HiveMQ cluster backups
+- `kubectl broker restore` - Restore from backup archives
+- `kubectl broker maintenance` - Cluster maintenance operations
+- `kubectl broker config` - Configuration management
+- `kubectl broker logs` - Enhanced log collection and analysis
+
 ### Benefits
-- **Human Analysis:** Rich diagnostic information with component breakdown
-- **Machine Integration:** JSON output for jq, monitoring tools, scripts
-- **Flexible Diagnostics:** Different health endpoints for specific use cases
-- **Backward Compatibility:** Existing usage patterns continue to work
-- **External Tool Support:** Raw JSON enables integration with monitoring pipelines
+- **Extensibility:** Easy addition of new management features
+- **Organization:** Clear separation between different tool functions
+- **User Experience:** Intuitive command structure following kubectl patterns
+- **Maintenance:** Easier code organization and testing per command
 
 ---
 
 ## Project Structure
 ```
 kubectl-broker/
-├── cmd/kubectl-broker/    # Main CLI application
+├── cmd/kubectl-broker/    # Main CLI application with subcommands
+│   ├── main.go           # Root command and subcommand registration
+│   ├── status.go         # Status/health checking subcommand (Phase 6)
+│   └── backup.go         # Backup operations subcommand (Phase 6)
 ├── pkg/                   # Core functionality packages  
 │   ├── concurrent.go      # Parallel health checking logic
 │   ├── discovery.go       # Pod/StatefulSet discovery
 │   ├── errors.go          # Enhanced error handling
-│   ├── health/            # NEW: HiveMQ health response parsing
+│   ├── health/            # HiveMQ health response parsing (Phase 5)
 │   ├── k8s.go            # Kubernetes client wrapper
 │   └── portforward.go     # Port forwarding implementation
 ├── install.sh            # Automated installation script
@@ -131,5 +144,5 @@ kubectl-broker/
 ```
 
 ## Current Status
-- **Phases 1-4:** Production ready ✅
-- **Phase 5:** Enhanced health analysis - In development 🚧
+- **Phases 1-6:** Production ready ✅
+- **Future Phases:** Available for additional HiveMQ management features

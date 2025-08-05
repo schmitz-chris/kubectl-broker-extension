@@ -4,14 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that streamlines health diagnostics for HiveMQ clusters running on Kubernetes. The project has completed all major phases (1-5) and is fully functional with intelligent defaults, concurrent health checks, optimized binary size, and enhanced HiveMQ Health API analysis.
+This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that provides comprehensive HiveMQ cluster management for Kubernetes. The project has completed all major phases (1-6) and features intelligent defaults, concurrent health checks, optimized binary size, enhanced HiveMQ Health API analysis, and extensible subcommand architecture.
 
 ## Project Structure
 
-- `cmd/kubectl-broker/main.go` - Main CLI application with intelligent defaults and enhanced health options
+- `cmd/kubectl-broker/main.go` - Root command with subcommand architecture (Phase 6)
+- `cmd/kubectl-broker/status.go` - Health diagnostics subcommand with intelligent defaults
+- `cmd/kubectl-broker/backup.go` - Backup operations framework (Phase 6)
 - `pkg/` - Core functionality packages (k8s client, port-forwarding, concurrent health checks)
 - `pkg/health/` - HiveMQ Health API parsing and analysis (Phase 5)
-- `PLAN.md` - Implementation roadmap (all phases completed including Phase 5)
+- `PLAN.md` - Implementation roadmap (all phases completed including Phase 6)
 - `OBJECTS.md` - Example Kubernetes objects and HiveMQ health API responses
 - `Makefile` - Professional build system with size optimization targets
 - `install.sh` - Automated kubectl plugin installation script
@@ -49,24 +51,27 @@ make clean         # Remove build artifacts
 make uninstall     # Remove installed plugin
 ```
 
-The tool is used as a kubectl plugin:
+The tool is used as a kubectl plugin with subcommand architecture:
 ```bash
-# Simple usage with intelligent defaults
+# Show available commands
 kubectl broker
 
-# Discovery mode
-kubectl broker --discover
-
-# Explicit usage
-kubectl broker --statefulset broker --namespace production
-kubectl broker --pod broker-0 --namespace production
+# Health diagnostics (Phase 6 subcommand structure)
+kubectl broker status                                    # Simple usage with intelligent defaults
+kubectl broker status --discover                         # Discovery mode
+kubectl broker status --statefulset broker --namespace production
+kubectl broker status --pod broker-0 --namespace production
 
 # Enhanced health API analysis (Phase 5) with color-coded status indicators
-kubectl broker --json                              # Raw JSON output for external tools (colors disabled)
-kubectl broker --detailed                          # Detailed component breakdown + debug info (colors enabled)
-kubectl broker --endpoint liveness                 # Specific health endpoint with colored status
-kubectl broker --statefulset broker --raw          # Unprocessed response (colors disabled)
-kubectl broker --pod broker-0 --endpoint readiness # Readiness check with colored indicators
+kubectl broker status --json                             # Raw JSON output for external tools (colors disabled)
+kubectl broker status --detailed                         # Detailed component breakdown + debug info (colors enabled)
+kubectl broker status --endpoint liveness                # Specific health endpoint with colored status
+kubectl broker status --statefulset broker --raw         # Unprocessed response (colors disabled)
+kubectl broker status --pod broker-0 --endpoint readiness # Readiness check with colored indicators
+
+# Future backup functionality (Phase 6 framework)
+kubectl broker backup --statefulset broker --namespace production
+kubectl broker backup --output-dir ./backups
 ```
 
 ## Architecture
@@ -106,6 +111,14 @@ The tool has completed all planned development phases:
 - External tool integration with JSON output for monitoring pipelines
 - Clean minimal output by default, verbose debug info only with `--detailed` flag
 - **Color-coded health status indicators** for improved visual recognition of broker states
+
+### ✅ Phase 6: Subcommand Architecture (Completed)
+- Extensible CLI structure with parent command and subcommands
+- `status` subcommand containing all health checking functionality
+- `backup` subcommand framework for future backup operations
+- Professional command structure following kubectl plugin patterns
+- Maintains backward compatibility through clear command separation
+- Foundation for additional HiveMQ cluster management features
 
 ### 🚀 Binary Size Optimization (Completed)
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports
