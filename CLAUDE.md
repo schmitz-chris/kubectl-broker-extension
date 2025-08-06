@@ -4,16 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that provides comprehensive HiveMQ cluster management for Kubernetes. The project has completed all major phases (1-6) and features intelligent defaults, concurrent health checks, optimized binary size, enhanced HiveMQ Health API analysis, and extensible subcommand architecture.
+This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that provides comprehensive HiveMQ cluster management for Kubernetes. The project has completed all major phases (1-7) and features intelligent defaults, concurrent health checks, optimized binary size, enhanced HiveMQ Health API analysis, extensible subcommand architecture, and complete backup management functionality.
 
 ## Project Structure
 
 - `cmd/kubectl-broker/main.go` - Root command with subcommand architecture (Phase 6)
 - `cmd/kubectl-broker/status.go` - Health diagnostics subcommand with intelligent defaults
-- `cmd/kubectl-broker/backup.go` - Backup operations framework (Phase 6)
+- `cmd/kubectl-broker/backup.go` - Complete backup operations with subcommands (Phase 7)
 - `pkg/` - Core functionality packages (k8s client, port-forwarding, concurrent health checks)
 - `pkg/health/` - HiveMQ Health API parsing and analysis (Phase 5)
-- `PLAN.md` - Implementation roadmap (all phases completed including Phase 6)
+- `pkg/backup/` - HiveMQ backup operations and REST API client (Phase 7)
+- `PLAN.md` - Implementation roadmap (all phases completed including Phase 7)
 - `OBJECTS.md` - Example Kubernetes objects and HiveMQ health API responses
 - `Makefile` - Professional build system with size optimization targets
 - `install.sh` - Automated kubectl plugin installation script
@@ -69,9 +70,16 @@ kubectl broker status --endpoint liveness                # Specific health endpo
 kubectl broker status --statefulset broker --raw         # Unprocessed response (colors disabled)
 kubectl broker status --pod broker-0 --endpoint readiness # Readiness check with colored indicators
 
-# Future backup functionality (Phase 6 framework)
-kubectl broker backup --statefulset broker --namespace production
-kubectl broker backup --output-dir ./backups
+# Backup management (Phase 7 complete functionality)
+kubectl broker backup create --statefulset broker --namespace production  # Create new backup
+kubectl broker backup list --statefulset broker --namespace production     # List all backups
+kubectl broker backup download --id abc123 --output-dir ./backups          # Download specific backup
+kubectl broker backup download --latest --output-dir ./backups             # Download latest backup
+kubectl broker backup status --id abc123                                   # Check backup status
+kubectl broker backup status --latest                                      # Check latest backup status
+
+# With authentication (optional)
+kubectl broker backup create --username admin --password secret
 ```
 
 ## Architecture
@@ -119,6 +127,16 @@ The tool has completed all planned development phases:
 - Professional command structure following kubectl plugin patterns
 - Maintains backward compatibility through clear command separation
 - Foundation for additional HiveMQ cluster management features
+
+### ✅ Phase 7: HiveMQ Backup Management (Completed)
+- Complete backup management system using HiveMQ REST API
+- Four backup subcommands: create, list, download, status
+- Intelligent defaults and consistent UX with existing health monitoring
+- Progress indicators and status polling for long-running operations
+- File download with progress bars and automatic filename handling
+- Color-coded status display matching health command patterns
+- Comprehensive error handling with actionable guidance
+- Authentication support for secured HiveMQ instances
 
 ### 🚀 Binary Size Optimization (Completed)
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports
@@ -197,3 +215,54 @@ Components:
   - extensions: [UP]
   [... detailed component breakdown ...]
 ```
+```
+
+## CLI Coding Guidelines
+
+- **Emojis**: Do not use emojis for CLI output in this application
+
+## Recent Updates (2025-01-06)
+
+### Professional CLI Output
+- **No Emojis**: All CLI output uses clean, professional text without decorative emojis
+- **Streamlined Backup Creation**: Reduced verbose output from 13 lines to 6 lines, eliminated duplicate messages
+- **Better Error Messages**: Improved download error handling with clear explanations when functionality is not supported
+
+### Backup Functionality Fixes
+- **JSON Parsing**: Fixed backup response parsing to handle HiveMQ's `{"backup": {...}}` wrapper format
+- **API Endpoints**: Corrected backup status endpoint from `/backups/{id}/status` to `/backups/{id}`
+- **Field Mapping**: Updated JSON field names to match HiveMQ API (`state` not `status`, `bytes` not `size`, `items` not `backups`)
+- **Download Handling**: Added intelligent download endpoint detection and informative error messages for unsupported download functionality
+
+### Output Examples
+
+#### Backup Creation (Before/After)
+**Before (verbose, 13 lines):**
+```
+Warning: Backup operations may consume significant disk space...
+Creating backup using service hivemq-broker-api...
+Connected to API on port 51635, testing management API...
+Management API available, initiating backup...
+Backup created with ID: 20250806-081834
+Waiting for backup to complete...
+Status: COMPLETED
+Backup completed successfully! Size: 1.0 KB    [duplicate]
+Backup completed successfully!                  [duplicate]
+...
+```
+
+**After (clean, 6 lines):**
+```
+Creating backup for StatefulSet broker in namespace xyz
+Backup created: 20250806-083755
+Waiting for completion.... done
+
+Backup ID: 20250806-083755
+Status: COMPLETED
+Size: 1.0 KB | Created: 2025-08-06T08:37:55Z
+```
+
+#### Error Messages (Improved)
+**Before:** `HTTP 404: {"errors":[{"title":"Resource not found"}]}`
+
+**After:** `backup download not supported: all download endpoints returned 404. This HiveMQ instance (version 4.x) may not have backup download functionality enabled or available. You can create and list backups, but downloading them may not be supported in this configuration.`

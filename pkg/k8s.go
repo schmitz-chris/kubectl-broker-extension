@@ -156,6 +156,35 @@ func (k *K8sClient) DiscoverHealthPort(pod *v1.Pod) (int32, error) {
 	return 0, fmt.Errorf("health port not found. Available ports: %v. Use --port/-p to specify manually", availablePorts)
 }
 
+// DiscoverAPIPort searches for a container port named "api" in the pod, with fallback to port 8081
+func (k *K8sClient) DiscoverAPIPort(pod *v1.Pod) (int32, error) {
+	var availablePorts []string
+
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			portInfo := fmt.Sprintf("%s(%d)", port.Name, port.ContainerPort)
+			availablePorts = append(availablePorts, portInfo)
+
+			// First preference: named port "api"
+			if port.Name == "api" {
+				return port.ContainerPort, nil
+			}
+
+			// Second preference: port 8081 (common HiveMQ API port)
+			if port.ContainerPort == 8081 {
+				return port.ContainerPort, nil
+			}
+		}
+	}
+
+	if len(availablePorts) == 0 {
+		return 0, fmt.Errorf("no container ports found in pod %s", pod.Name)
+	}
+
+	// If no named "api" port or port 8081 found, return error with available ports
+	return 0, fmt.Errorf("API port not found (expected port named 'api' or port 8081). Available ports: %v", availablePorts)
+}
+
 // GetConfig returns the Kubernetes config
 func (k *K8sClient) GetConfig() *rest.Config {
 	return k.config
@@ -201,6 +230,83 @@ func (k *K8sClient) GetPodsFromStatefulSet(ctx context.Context, namespace, state
 	}
 
 	return pods, nil
+}
+
+// GetAPIServiceFromStatefulSet finds the API service for a StatefulSet
+func (k *K8sClient) GetAPIServiceFromStatefulSet(ctx context.Context, namespace, statefulSetName string) (*v1.Service, error) {
+	// First, try to find service with standard HiveMQ naming pattern: hivemq-broker-api
+	serviceName := "hivemq-broker-api"
+	service, err := k.coreClient.Services(namespace).Get(ctx, serviceName, metav1.GetOptions{})
+	if err == nil {
+		// Validate it has an API port
+		if hasAPIPort(service) {
+			return service, nil
+		}
+	}
+
+	// Fallback: look for services with labels matching the StatefulSet
+	sts, err := k.GetStatefulSet(ctx, namespace, statefulSetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get StatefulSet %s: %w", statefulSetName, err)
+	}
+
+	// Create label selector from StatefulSet's selector
+	labelSelector := metav1.FormatLabelSelector(sts.Spec.Selector)
+
+	// List services matching the label selector
+	services, err := k.coreClient.Services(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list services for StatefulSet %s: %w", statefulSetName, err)
+	}
+
+	// Find a service with API port
+	for i := range services.Items {
+		service := &services.Items[i]
+		if hasAPIPort(service) {
+			return service, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no API service found for StatefulSet %s in namespace %s. Expected service named 'hivemq-broker-api' or service with port named 'api' or port 8081", statefulSetName, namespace)
+}
+
+// DiscoverServiceAPIPort searches for API port in a service
+func (k *K8sClient) DiscoverServiceAPIPort(service *v1.Service) (int32, error) {
+	var availablePorts []string
+
+	for _, port := range service.Spec.Ports {
+		portInfo := fmt.Sprintf("%s(%d)", port.Name, port.Port)
+		availablePorts = append(availablePorts, portInfo)
+
+		// First preference: named port "api"
+		if port.Name == "api" {
+			return port.Port, nil
+		}
+
+		// Second preference: port 8081 (common HiveMQ API port)
+		if port.Port == 8081 {
+			return port.Port, nil
+		}
+	}
+
+	if len(availablePorts) == 0 {
+		return 0, fmt.Errorf("no ports found in service %s", service.Name)
+	}
+
+	// If no named "api" port or port 8081 found, return error with available ports
+	return 0, fmt.Errorf("API port not found in service %s (expected port named 'api' or port 8081). Available ports: %v", service.Name, availablePorts)
+}
+
+// hasAPIPort checks if a service has an API port (named "api" or port 8081)
+func hasAPIPort(service *v1.Service) bool {
+	for _, port := range service.Spec.Ports {
+		if port.Name == "api" || port.Port == 8081 {
+			return true
+		}
+	}
+	return false
 }
 
 // GetDefaultNamespace extracts the default namespace from the current kubectl context

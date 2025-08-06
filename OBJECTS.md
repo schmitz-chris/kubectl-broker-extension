@@ -726,3 +726,57 @@ spec:
 
 # additional information
 currently every hivemq pod needs to be queried individually to get the health status, as the healthApi. 
+
+# example service for the hivemq broker API
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hivemq-broker-api
+  namespace: 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8
+  uid: 5b07d02c-8b39-43c2-8126-19e7bccacc7f
+  resourceVersion: '415246916'
+  creationTimestamp: '2025-05-13T15:29:19Z'
+  labels:
+    app.hivemq.cloud/team: platform
+    app.kubernetes.io/instance: 0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: hivemq-broker
+    app.kubernetes.io/version: 8.8.0
+    argocd.argoproj.io/instance: apiary-hives_0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8
+    helm.sh/chart: managed-hive-8.8.0
+    hivemq-platform: broker
+    hivemq/platform-service: 'true'
+  annotations:
+    javaoperatorsdk.io/previous: a81fdee2-6c5e-4001-9848-a4c0efcc4255,400464200
+    kubectl.kubernetes.io/last-applied-configuration: >
+      {"apiVersion":"hivemq.com/v1","kind":"HiveMQPlatform","metadata":{"annotations":{},"labels":{"app.hivemq.cloud/team":"platform","app.kubernetes.io/instance":"0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"hivemq-broker","app.kubernetes.io/version":"8.8.0","argocd.argoproj.io/instance":"apiary-hives_0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8","helm.sh/chart":"managed-hive-8.8.0"},"name":"broker","namespace":"0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8"},"spec":{"extensions":[{"enabled":false,"extensionUri":"preinstalled","id":"hivemq-allow-all-extension","supportsHotReload":false},{"enabled":false,"extensionUri":"preinstalled","id":"hivemq-amazon-kinesis-extension","supportsHotReload":false},{"enabled":true,"extensionUri":"preinstalled","id":"hivemq-cloud-metering-extension","supportsHotReload":false},{"enabled":true,"extensionUri":"preinstalled","id":"hivemq-enterprise-security-extension","secretName":"extension-config-hivemq-enterprise-security-extension","supportsHotReload":false},{"enabled":false,"extensionUri":"preinstalled","id":"hivemq-kafka-extension","supportsHotReload":false}],"healthApiPort":9090,"metricsPath":"/","metricsPort":9399,"operatorRestApiPort":7979,"secretName":"broker-config","services":[{"metadata":{"name":"hivemq-broker-mqtts-probe"},"spec":{"clusterIP":"None","ports":[{"name":"mqtts-probe","port":1337,"targetPort":"mqtts-probe"}]}},{"metadata":{"name":"hivemq-broker-mqtt"},"spec":{"clusterIP":"None","ports":[{"name":"hivemq-broker-mqtts-0","port":8883,"targetPort":"mqtt"}]}},{"metadata":{"name":"hivemq-broker-mqtts-1"},"spec":{"clusterIP":"None","ports":[{"name":"hivemq-broker-mqtts-1","port":8884,"targetPort":"mqtts-1"}]}},{"metadata":{"name":"hivemq-broker-ws-0"},"spec":{"clusterIP":"None","ports":[{"name":"ws-0","port":5883,"targetPort":"ws-0"}]}},{"metadata":{"name":"hivemq-broker-ws-1"},"spec":{"clusterIP":"None","ports":[{"name":"ws-1","port":5884,"targetPort":"ws-1"}]}},{"metadata":{"name":"hivemq-broker-cc"},"spec":{"clusterIP":"None","ports":[{"name":"cc","port":8080,"targetPort":"cc"}]}},{"metadata":{"name":"hivemq-broker-api"},"spec":{"clusterIP":"None","ports":[{"name":"api","port":8081,"targetPort":"api"}]}},{"metadata":{"name":"metrics-0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8"},"spec":{"ports":[{"name":"metrics","port":9399,"targetPort":"metrics"}]}}],"statefulSet":{"spec":{"replicas":2,"template":{"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"designation","operator":"In","values":["tier1"]}]}]}},"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchExpressions":[{"key":"app.kubernetes.io/name","operator":"In","values":["hivemq-broker"]}]},"topologyKey":"topology.kubernetes.io/zone"},"weight":100}],"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"app.kubernetes.io/instance","operator":"In","values":["0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8"]}]},"topologyKey":"kubernetes.io/hostname"}]}},"containers":[{"env":[{"name":"JAVA_OPTS","value":"-XX:+UnlockExperimentalVMOptions
+      -XX:InitialRAMPercentage=50
+      -XX:MaxRAMPercentage=50"},{"name":"HIVEID","value":"0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8"},{"name":"ESE_DATABASE_NAME","valueFrom":{"secretKeyRef":{"key":"dbname","name":"pguser-hivemq"}}},{"name":"ESE_DATABASE_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"pguser-hivemq"}}},{"name":"ESE_DATABASE_USER","valueFrom":{"secretKeyRef":{"key":"username","name":"pguser-hivemq"}}},{"name":"HIVEMQ_CONFIG_FOLDER","value":"/opt/hivemq/conf-k8s"},{"name":"HIVEMQ_INTERNAL_ANALYTIC_METRICS","value":"true"},{"name":"HIVEMQ_INTERNAL_NORMALIZED_MESSAGE_SIZE_IN_BYTES","value":"5120"},{"name":"HIVEMQ_LOGBACK_CONFIG_FOLDER","value":"/opt/hivemq/conf-k8s"},{"name":"HMQC_METERING_NORMALIZED_MESSAGE_BYTES","value":"5120"},{"name":"HMQC_METERING_PROBE_TOPIC_PREFIX","value":"probes"},{"name":"OAUTH_SECRET_KEY","valueFrom":{"secretKeyRef":{"key":"secret-key","name":"oauth-secrets"}}}],"image":"registry.hmqc.dev/hivemq-cloud/broker:k8s-4.36.0-monthly-20250205162547-e2bba64","imagePullPolicy":"IfNotPresent","name":"hivemq","ports":[{"containerPort":1337,"name":"mqtts-probe"},{"containerPort":8883,"name":"mqtt"},{"containerPort":8884,"name":"mqtts-1"},{"containerPort":5883,"name":"ws-0"},{"containerPort":5884,"name":"ws-1"},{"containerPort":8080,"name":"cc"},{"containerPort":8081,"name":"api"},{"containerPort":9090,"name":"health"},{"containerPort":9399,"name":"metrics"}],"resources":{"limits":{"cpu":"4000m","memory":"3072M"},"requests":{"cpu":"400m","memory":"2048M"}},"volumeMounts":[{"mountPath":"/opt/hivemq/data","name":"data"},{"mountPath":"/opt/hivemq/log","name":"logs"},{"mountPath":"/opt/hivemq/license","name":"licenses"},{"mountPath":"/opt/hivemq/conf/cluster-transport-keystore","name":"broker-cluster-transport-tls","readOnly":true},{"mountPath":"/opt/hivemq/conf/tls","name":"hive-certificates","readOnly":true}]}],"imagePullSecrets":[{"name":"harbor-pull-secret"}],"securityContext":{"fsGroup":10000,"fsGroupChangePolicy":"OnRootMismatch"},"tolerations":[{"effect":"NoSchedule","key":"designation","operator":"Equal","value":"tier1"}],"volumes":[{"emptyDir":{},"name":"logs"},{"name":"licenses","secret":{"secretName":"hivemq-common-licenses"}},{"name":"broker-cluster-transport-tls","secret":{"secretName":"broker-cluster-transport-tls"}},{"name":"hive-certificates","secret":{"secretName":"hive-certificates"}}]}},"volumeClaimTemplates":[{"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"creationTimestamp":null,"name":"data"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"5Gi"}},"storageClassName":"broker-standard-1","volumeMode":"Filesystem"}}]}}}}
+  ownerReferences:
+    - apiVersion: hivemq.com/v1
+      kind: HiveMQPlatform
+      name: broker
+      uid: 7130cf4b-c416-4e4c-a4e2-c27b7c24d843
+  selfLink: >-
+    /api/v1/namespaces/0713bd6e-b9e7-40b0-a1cd-e2ce04c87ec8/services/hivemq-broker-api
+status:
+  loadBalancer: {}
+spec:
+  ports:
+    - name: api
+      protocol: TCP
+      port: 8081
+      targetPort: api
+  selector:
+    hivemq-platform: broker
+  clusterIP: None
+  clusterIPs:
+    - None
+  type: ClusterIP
+  sessionAffinity: None
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+  internalTrafficPolicy: Cluster
+```

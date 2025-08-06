@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
@@ -298,4 +299,100 @@ func (pf *PortForwarder) performHealthCheckWithOptions(localPort int, options he
 	}
 
 	return parsed, rawJSON, nil
+}
+
+// PerformWithPortForwarding performs a generic operation with port forwarding established to a pod
+func (pf *PortForwarder) PerformWithPortForwarding(ctx context.Context, pod *v1.Pod, remotePort int32, localPort int, operation func(localPort int) error) error {
+	// Build the port-forward URL
+	req := pf.restClient.Post().
+		Resource("pods").
+		Namespace(pod.Namespace).
+		Name(pod.Name).
+		SubResource("portforward")
+
+	return pf.performPortForwarding(ctx, req, remotePort, localPort, operation)
+}
+
+// PerformWithServicePortForwarding performs a generic operation with port forwarding established to a service
+// This works by finding a ready pod behind the service and port-forwarding to it
+func (pf *PortForwarder) PerformWithServicePortForwarding(ctx context.Context, k8sClient *K8sClient, service *v1.Service, remotePort int32, localPort int, operation func(localPort int) error) error {
+	// Get endpoints for the service to find a ready pod
+	endpoints, err := k8sClient.coreClient.Endpoints(service.Namespace).Get(ctx, service.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get endpoints for service %s: %w", service.Name, err)
+	}
+
+	// Find a ready endpoint
+	var targetPodName string
+	for _, subset := range endpoints.Subsets {
+		for _, address := range subset.Addresses {
+			if address.TargetRef != nil && address.TargetRef.Kind == "Pod" {
+				targetPodName = address.TargetRef.Name
+				break
+			}
+		}
+		if targetPodName != "" {
+			break
+		}
+	}
+
+	if targetPodName == "" {
+		return fmt.Errorf("no ready pods found for service %s", service.Name)
+	}
+
+	// Get the pod object
+	pod, err := k8sClient.coreClient.Pods(service.Namespace).Get(ctx, targetPodName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get pod %s: %w", targetPodName, err)
+	}
+
+	// Use regular pod port-forwarding
+	return pf.PerformWithPortForwarding(ctx, pod, remotePort, localPort, operation)
+}
+
+// performPortForwarding is the common implementation for both pod and service port forwarding
+func (pf *PortForwarder) performPortForwarding(ctx context.Context, req *rest.Request, remotePort int32, localPort int, operation func(localPort int) error) error {
+	// Create SPDY dialer
+	transport, upgrader, err := spdy.RoundTripperFor(pf.config)
+	if err != nil {
+		return fmt.Errorf("failed to create SPDY round tripper: %w", err)
+	}
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+
+	// Set up channels for port-forward lifecycle
+	readyChan := make(chan struct{})
+	stopChan := make(chan struct{})
+	errorChan := make(chan error, 1)
+
+	// Create port forwarder
+	ports := []string{fmt.Sprintf("%d:%d", localPort, remotePort)}
+	forwarder, err := portforward.New(dialer, ports, stopChan, readyChan, io.Discard, io.Discard)
+	if err != nil {
+		return fmt.Errorf("failed to create port forwarder: %w", err)
+	}
+
+	// Start port forwarding in a goroutine
+	go func() {
+		if err := forwarder.ForwardPorts(); err != nil {
+			errorChan <- err
+		}
+	}()
+
+	// Wait for port forwarding to be ready or fail
+	select {
+	case <-readyChan:
+		// Port forwarding is ready, perform the operation
+		err := operation(localPort)
+		close(stopChan)
+		return err
+
+	case err := <-errorChan:
+		close(stopChan)
+		return err
+
+	case <-ctx.Done():
+		close(stopChan)
+		return ctx.Err()
+	}
 }
