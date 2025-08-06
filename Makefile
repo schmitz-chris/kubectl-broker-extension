@@ -15,108 +15,95 @@ all: build
 build: $(BINARY_NAME)
 
 $(BINARY_NAME): $(GO_FILES)
-	@echo "🔨 Building kubectl-broker..."
+	@echo "Building kubectl-broker..."
 	go build -o $(BINARY_NAME) ./cmd/kubectl-broker
-	@echo "✅ Build complete: $(BINARY_NAME)"
+	@echo "Build complete: $(BINARY_NAME)"
 
 # Install as kubectl plugin (standard build)
 .PHONY: install
 install: build
-	@echo "📦 Installing kubectl-broker as kubectl plugin..."
+	@echo "Installing kubectl-broker as kubectl plugin..."
 	mkdir -p $(INSTALL_DIR)
 	cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
 	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "✅ Installed to $(INSTALL_DIR)/$(BINARY_NAME)"
+	@echo "Installed to $(INSTALL_DIR)/$(BINARY_NAME)"
 	@echo ""
-	@echo "📝 To complete installation, add to your PATH:"
+	@echo "To complete installation, add to your PATH:"
 	@echo "   export PATH=\"\$$HOME/.kubectl-broker:\$$PATH\""
 	@echo ""
-	@echo "🧪 Test installation:"
+	@echo "Test installation:"
 	@echo "   kubectl plugin list | grep broker"
 	@echo "   kubectl broker --help"
 
 # Install with optimized build (35MB vs 53MB)
 .PHONY: install-small
 install-small: build-small
-	@echo "📦 Installing optimized kubectl-broker as kubectl plugin..."
+	@echo "Installing optimized kubectl-broker as kubectl plugin..."
 	mkdir -p $(INSTALL_DIR)
 	cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
 	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "✅ Installed optimized binary to $(INSTALL_DIR)/$(BINARY_NAME)"
+	@echo "Installed optimized binary to $(INSTALL_DIR)/$(BINARY_NAME)"
 	@echo ""
-	@echo "📝 To complete installation, add to your PATH:"
+	@echo "To complete installation, add to your PATH:"
 	@echo "   export PATH=\"\$$HOME/.kubectl-broker:\$$PATH\""
 	@echo ""
-	@echo "🧪 Test installation:"
+	@echo "Test installation:"
 	@echo "   kubectl plugin list | grep broker"
 	@echo "   kubectl broker --help"
 
 # Automated installation with PATH setup (uses install.sh)
 .PHONY: install-auto
 install-auto:
-	@echo "🚀 Running automated installation with optimized binary..."
+	@echo "Running automated installation with optimized binary..."
 	@./install.sh
 
 # Clean build artifacts
 .PHONY: clean
 clean:
-	@echo "🧹 Cleaning build artifacts..."
+	@echo "Cleaning build artifacts..."
 	rm -f $(BINARY_NAME)
-	@echo "✅ Clean complete"
+	@echo "Clean complete"
 
 # Uninstall the plugin
 .PHONY: uninstall
 uninstall:
-	@echo "🗑️  Uninstalling kubectl-broker..."
+	@echo "Uninstalling kubectl-broker..."
 	rm -rf $(INSTALL_DIR)
-	@echo "✅ Uninstalled kubectl-broker"
-	@echo "📝 Don't forget to remove from your PATH if added manually"
+	@echo "Uninstalled kubectl-broker"
+	@echo "Don't forget to remove from your PATH if added manually"
 
 # Test the plugin functionality
 .PHONY: test
 test: build
-	@echo "🧪 Testing kubectl-broker functionality..."
+	@echo "Testing kubectl-broker functionality..."
 	./$(BINARY_NAME) --help
-	@echo "✅ Basic functionality test passed"
+	@echo "Basic functionality test passed"
 
 # Development build with race detector
 .PHONY: dev
 dev:
-	@echo "🔨 Building development version with race detector..."
+	@echo "Building development version with race detector..."
 	go build -race -o $(BINARY_NAME) ./cmd/kubectl-broker
-	@echo "✅ Development build complete"
+	@echo "Development build complete"
 
 # Release build with optimizations
 .PHONY: release
 release:
-	@echo "🚀 Building release version..."
+	@echo "Building release version..."
 	CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_NAME) ./cmd/kubectl-broker
-	@echo "✅ Release build complete"
+	@echo "Release build complete"
 
 # Small build with maximum optimization
 .PHONY: build-small
 build-small:
-	@echo "🔧 Building with maximum size optimization..."
+	@echo "Building with maximum size optimization..."
 	CGO_ENABLED=0 go build -ldflags="-w -s -X 'main.version=$(shell git describe --tags --always)'" -trimpath -o $(BINARY_NAME) ./cmd/kubectl-broker
-	@echo "✅ Small build complete"
-
-# UPX compressed build (requires UPX to be installed)
-.PHONY: build-upx
-build-upx: build-small
-	@echo "📦 Compressing binary with UPX..."
-	@if command -v upx >/dev/null 2>&1; then \
-		upx --best --lzma $(BINARY_NAME); \
-		echo "✅ UPX compression complete"; \
-	else \
-		echo "⚠️  UPX not found. Install with: brew install upx (macOS) or apt-get install upx (Linux)"; \
-		echo "📏 Binary size without UPX compression:"; \
-		ls -lh $(BINARY_NAME); \
-	fi
+	@echo "Small build complete"
 
 # Cross-compile for multiple platforms
 .PHONY: cross-compile
 cross-compile:
-	@echo "🌍 Cross-compiling for multiple platforms..."
+	@echo "Cross-compiling for multiple platforms..."
 	mkdir -p dist
 	# Linux AMD64
 	GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o dist/kubectl-broker-linux-amd64 ./cmd/kubectl-broker
@@ -128,33 +115,33 @@ cross-compile:
 	GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o dist/kubectl-broker-darwin-arm64 ./cmd/kubectl-broker
 	# Windows AMD64
 	GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o dist/kubectl-broker-windows-amd64.exe ./cmd/kubectl-broker
-	@echo "✅ Cross-compilation complete. Binaries in dist/"
+	@echo "Cross-compilation complete. Binaries in dist/"
 
 # Run Go tests
 .PHONY: test-go
 test-go:
-	@echo "🧪 Running Go tests..."
+	@echo "Running Go tests..."
 	go test ./...
-	@echo "✅ All tests passed"
+	@echo "All tests passed"
 
 # Format Go code
 .PHONY: fmt
 fmt:
-	@echo "📝 Formatting Go code..."
+	@echo "Formatting Go code..."
 	go fmt ./...
-	@echo "✅ Code formatted"
+	@echo "Code formatted"
 
 # Run Go vet
 .PHONY: vet
 vet:
-	@echo "🔍 Running go vet..."
+	@echo "Running go vet..."
 	go vet ./...
-	@echo "✅ Vet checks passed"
+	@echo "Vet checks passed"
 
 # Run all checks
 .PHONY: check
 check: fmt vet test-go
-	@echo "✅ All checks passed"
+	@echo "All checks passed"
 
 # Show help
 .PHONY: help
@@ -172,7 +159,7 @@ help:
 	@echo "  dev           Build with race detector"
 	@echo "  release       Build optimized release version"
 	@echo "  build-small   Build with maximum size optimization"
-	@echo "  build-upx     Build with UPX compression (smallest)"
+	@echo ""
 	@echo "  cross-compile Build for multiple platforms"
 	@echo "  test-go       Run Go tests"
 	@echo "  fmt           Format Go code"
