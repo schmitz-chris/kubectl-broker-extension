@@ -211,7 +211,21 @@ func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) erro
 				if comp.Details != "" {
 					fmt.Printf(" (%s)", comp.Details)
 				}
-				fmt.Println()
+
+				// Special handling for extensions - show individual extensions
+				if comp.Name == "extensions" && len(comp.SubComponents) > 0 {
+					fmt.Printf(" (%d extensions)", len(comp.SubComponents))
+					fmt.Println()
+					for _, ext := range comp.SubComponents {
+						fmt.Printf("    - %s: %s", ext.Name, health.FormatHealthStatusWithColor(ext.Status, options.UseColors))
+						if ext.Details != "" {
+							fmt.Printf(" (%s)", ext.Details)
+						}
+						fmt.Println()
+					}
+				} else {
+					fmt.Println()
+				}
 			}
 		}
 	} else {

@@ -22,12 +22,14 @@ type HealthResponse struct {
 
 // ComponentHealth represents health information for individual components
 type ComponentHealth struct {
-	Status  HealthStatus           `json:"status"`
-	Details map[string]interface{} `json:"details,omitempty"`
+	Status     HealthStatus               `json:"status"`
+	Details    map[string]interface{}     `json:"details,omitempty"`
+	Components map[string]ComponentHealth `json:"components,omitempty"`
 }
 
 // ParsedHealthData represents analyzed health information for display
 type ParsedHealthData struct {
+	PodName             string // Pod name for JSON output
 	OverallStatus       HealthStatus
 	ComponentCount      int
 	HealthyComponents   int
@@ -39,9 +41,10 @@ type ParsedHealthData struct {
 
 // ComponentStatus represents the status of an individual component
 type ComponentStatus struct {
-	Name    string
-	Status  HealthStatus
-	Details string
+	Name          string
+	Status        HealthStatus
+	Details       string
+	SubComponents []ComponentStatus // For nested components like individual extensions
 }
 
 // HealthCheckOptions configures how health checks are performed and displayed

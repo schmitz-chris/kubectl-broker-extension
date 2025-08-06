@@ -10,12 +10,18 @@ import (
 
 // ParseHealthResponse parses a HiveMQ health API JSON response
 func ParseHealthResponse(jsonData []byte) (*ParsedHealthData, error) {
+	return ParseHealthResponseWithPodName(jsonData, "")
+}
+
+// ParseHealthResponseWithPodName parses a HiveMQ health API JSON response with pod name
+func ParseHealthResponseWithPodName(jsonData []byte, podName string) (*ParsedHealthData, error) {
 	var healthResp HealthResponse
 	if err := json.Unmarshal(jsonData, &healthResp); err != nil {
 		return nil, fmt.Errorf("failed to parse health response JSON: %w", err)
 	}
 
 	parsed := &ParsedHealthData{
+		PodName:       podName,
 		OverallStatus: healthResp.Status,
 		RawJSON:       jsonData,
 	}
@@ -39,6 +45,11 @@ func ParseHealthResponse(jsonData []byte) (*ParsedHealthData, error) {
 				componentStatus.Details = strings.Join(details, ", ")
 			}
 
+			// Special handling for extensions component - parse sub-components
+			if name == "extensions" {
+				componentStatus.SubComponents = parseExtensionsComponents(component)
+			}
+
 			parsed.ComponentDetails = append(parsed.ComponentDetails, componentStatus)
 
 			// Count component health status
@@ -54,6 +65,85 @@ func ParseHealthResponse(jsonData []byte) (*ParsedHealthData, error) {
 	}
 
 	return parsed, nil
+}
+
+// parseExtensionsComponents parses the extensions component to extract individual extension details
+func parseExtensionsComponents(extensionsComponent ComponentHealth) []ComponentStatus {
+	var subComponents []ComponentStatus
+
+	// Parse the extensions from the Components field
+	if extensionsComponent.Components != nil {
+		for extName, extComponent := range extensionsComponent.Components {
+			subComp := ComponentStatus{
+				Name:   extName,
+				Status: extComponent.Status,
+			}
+
+			// Extract extension details (version, license info)
+			var details []string
+			if extComponent.Details != nil {
+				// Extract version
+				if version, exists := extComponent.Details["version"]; exists {
+					details = append(details, fmt.Sprintf("v%v", version))
+				}
+
+				// Look for license information in nested components
+				if extComponent.Components != nil {
+					if internals, exists := extComponent.Components["internals"]; exists {
+						if internals.Components != nil {
+							if license, exists := internals.Components["license"]; exists {
+								if license.Details != nil {
+									licenseInfo := extractLicenseInfo(license.Details)
+									if licenseInfo != "" {
+										details = append(details, licenseInfo)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			subComp.Details = strings.Join(details, ", ")
+			subComponents = append(subComponents, subComp)
+		}
+	}
+
+	return subComponents
+}
+
+// extractLicenseInfo extracts license information from license details
+func extractLicenseInfo(licenseDetails map[string]interface{}) string {
+	var licenseInfo []string
+
+	if isEnterprise, exists := licenseDetails["is-enterprise"]; exists {
+		if enterprise, ok := isEnterprise.(bool); ok && enterprise {
+			licenseInfo = append(licenseInfo, "Enterprise")
+
+			// Check trial status for enterprise licenses
+			if isTrial, exists := licenseDetails["is-trial"]; exists {
+				if trial, ok := isTrial.(bool); ok && trial {
+					if isTrialExpired, exists := licenseDetails["is-trial-expired"]; exists {
+						if expired, ok := isTrialExpired.(bool); ok && expired {
+							licenseInfo = append(licenseInfo, "Trial Expired")
+						} else {
+							licenseInfo = append(licenseInfo, "Trial")
+						}
+					} else {
+						licenseInfo = append(licenseInfo, "Trial")
+					}
+				} else {
+					licenseInfo = append(licenseInfo, "Licensed")
+				}
+			} else {
+				licenseInfo = append(licenseInfo, "Licensed")
+			}
+		} else {
+			licenseInfo = append(licenseInfo, "Community")
+		}
+	}
+
+	return strings.Join(licenseInfo, ", ")
 }
 
 // GetHealthEndpointPath returns the full API path for a given health endpoint

@@ -221,18 +221,24 @@ Components:
 
 - **Emojis**: Do not use emojis for CLI output in this application
 
-## Recent Updates (2025-01-06)
+## Recent Updates (2025-01-06 - 2025-08-06)
 
-### Professional CLI Output
+### Professional CLI Output (2025-01-06)
 - **No Emojis**: All CLI output uses clean, professional text without decorative emojis
 - **Streamlined Backup Creation**: Reduced verbose output from 13 lines to 6 lines, eliminated duplicate messages
 - **Better Error Messages**: Improved download error handling with clear explanations when functionality is not supported
 
-### Backup Functionality Fixes
+### Backup Functionality Fixes (2025-01-06)
 - **JSON Parsing**: Fixed backup response parsing to handle HiveMQ's `{"backup": {...}}` wrapper format
 - **API Endpoints**: Corrected backup status endpoint from `/backups/{id}/status` to `/backups/{id}`
 - **Field Mapping**: Updated JSON field names to match HiveMQ API (`state` not `status`, `bytes` not `size`, `items` not `backups`)
 - **Download Handling**: Added intelligent download endpoint detection and informative error messages for unsupported download functionality
+
+### Enhanced Extension Analysis (2025-08-06)
+- **Individual Extension Details**: Now displays detailed information for each HiveMQ extension including version, license type (Community/Enterprise/Trial)
+- **Extension Licensing**: Shows license status (Community, Enterprise, Trial, Trial Expired) for each extension
+- **Structured JSON Output**: Improved JSON format for health status with proper pod identification and component structure
+- **Extension Sub-Components**: Detailed view now shows individual extensions under the extensions component with their specific status and metadata
 
 ### Output Examples
 

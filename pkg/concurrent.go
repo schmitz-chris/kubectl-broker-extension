@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -148,13 +149,38 @@ func (k *K8sClient) displayHealthCheckResults(results []HealthCheckResult, optio
 
 // displayJSONResults outputs results as JSON
 func (k *K8sClient) displayJSONResults(results []HealthCheckResult) error {
+	jsonResults := make([]map[string]interface{}, 0)
+
 	for _, result := range results {
-		if result.RawJSON != nil {
-			fmt.Printf("Pod: %s\n", result.PodName)
-			fmt.Println(string(result.RawJSON))
-			fmt.Println()
+		if result.ParsedHealth != nil {
+			// Create JSON object with pod name and health data
+			jsonResult := map[string]interface{}{
+				"podName": result.PodName,
+				"status":  string(result.ParsedHealth.OverallStatus),
+			}
+
+			// Add raw health response components
+			var rawHealthResp map[string]interface{}
+			if err := json.Unmarshal(result.RawJSON, &rawHealthResp); err == nil {
+				if components, exists := rawHealthResp["components"]; exists {
+					jsonResult["components"] = components
+				}
+				if details, exists := rawHealthResp["details"]; exists {
+					jsonResult["details"] = details
+				}
+			}
+
+			jsonResults = append(jsonResults, jsonResult)
 		}
 	}
+
+	// Output as proper JSON array
+	jsonBytes, err := json.MarshalIndent(jsonResults, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON results: %w", err)
+	}
+
+	fmt.Println(string(jsonBytes))
 	return nil
 }
 
@@ -184,7 +210,21 @@ func (k *K8sClient) displayDetailedResults(results []HealthCheckResult, options 
 					if comp.Details != "" {
 						fmt.Printf(" (%s)", comp.Details)
 					}
-					fmt.Println()
+
+					// Special handling for extensions - show individual extensions
+					if comp.Name == "extensions" && len(comp.SubComponents) > 0 {
+						fmt.Printf(" (%d extensions)", len(comp.SubComponents))
+						fmt.Println()
+						for _, ext := range comp.SubComponents {
+							fmt.Printf("    - %s: %s", ext.Name, health.FormatHealthStatusWithColor(ext.Status, options.UseColors))
+							if ext.Details != "" {
+								fmt.Printf(" (%s)", ext.Details)
+							}
+							fmt.Println()
+						}
+					} else {
+						fmt.Println()
+					}
 				}
 			}
 		} else if result.Error != nil {

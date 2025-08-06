@@ -239,7 +239,7 @@ func (pf *PortForwarder) PerformHealthCheckWithOptions(ctx context.Context, pod 
 	select {
 	case <-readyChan:
 		// Perform health check with options
-		parsedHealth, rawJSON, err := pf.performHealthCheckWithOptions(localPort, options)
+		parsedHealth, rawJSON, err := pf.performHealthCheckWithOptions(localPort, options, pod.Name)
 		close(stopChan)
 		return parsedHealth, rawJSON, err
 
@@ -254,7 +254,7 @@ func (pf *PortForwarder) PerformHealthCheckWithOptions(ctx context.Context, pod 
 }
 
 // performHealthCheckWithOptions makes an HTTP request to the specified health endpoint with options
-func (pf *PortForwarder) performHealthCheckWithOptions(localPort int, options health.HealthCheckOptions) (*health.ParsedHealthData, []byte, error) {
+func (pf *PortForwarder) performHealthCheckWithOptions(localPort int, options health.HealthCheckOptions, podName string) (*health.ParsedHealthData, []byte, error) {
 	endpointPath := health.GetHealthEndpointPath(options.Endpoint)
 	healthURL := fmt.Sprintf("http://localhost:%d%s", localPort, endpointPath)
 
@@ -284,7 +284,7 @@ func (pf *PortForwarder) performHealthCheckWithOptions(localPort int, options he
 
 	// If JSON output is requested, parse but don't analyze
 	if options.OutputJSON {
-		parsed, err := health.ParseHealthResponse(body)
+		parsed, err := health.ParseHealthResponseWithPodName(body, podName)
 		if err != nil {
 			// Still return raw JSON if parsing fails
 			return nil, rawJSON, err
@@ -293,7 +293,7 @@ func (pf *PortForwarder) performHealthCheckWithOptions(localPort int, options he
 	}
 
 	// Parse the response for analyzed output
-	parsed, err := health.ParseHealthResponse(body)
+	parsed, err := health.ParseHealthResponseWithPodName(body, podName)
 	if err != nil {
 		return nil, rawJSON, fmt.Errorf("failed to parse health response: %w", err)
 	}
