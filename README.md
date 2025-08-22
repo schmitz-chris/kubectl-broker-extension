@@ -8,6 +8,7 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 - **Single Pod Health Checks**: Check individual HiveMQ broker pods with detailed component analysis
 - **Parallel Cluster Health Checks**: Concurrent health checks across entire StatefulSets
 - **Enhanced Health API Analysis**: Comprehensive JSON parsing with component-level status (cluster, extensions, MQTT listeners)
+- **Individual Extension Details**: Detailed information for each HiveMQ extension including version and license status
 - **Color-Coded Status Display**: Visual health indicators (UP/DOWN/DEGRADED) for improved monitoring
 - **Multiple Output Formats**: Tabular, JSON, raw, and detailed component breakdown
 - **Automatic Discovery**: Find HiveMQ brokers across all accessible namespaces
@@ -32,20 +33,17 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 ### Automatic Installation (Recommended)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-repo/kubectl-broker/main/install.sh | bash
+# Build and install from source with automated setup
+make install-auto
 ```
 
 ### Manual Installation
 
-1. **Download or Build**:
+1. **Build from source**:
    ```bash
-   # Option 1: Download from releases
-   wget https://github.com/your-repo/kubectl-broker/releases/latest/download/kubectl-broker
-   
-   # Option 2: Build from source
-   git clone https://github.com/your-repo/kubectl-broker.git
-   cd kubectl-broker
-   go build -o kubectl-broker ./cmd/kubectl-broker
+   git clone <repository-url>
+   cd kubectl-broker-extension
+   make build-small  # Optimized 35MB build
    ```
 
 2. **Install as kubectl plugin**:
@@ -395,8 +393,8 @@ kubectl broker --statefulset broker --namespace your-namespace --port 9090
 This project uses a professional build system with Make:
 
 ```bash
-git clone https://github.com/your-repo/kubectl-broker.git
-cd kubectl-broker
+git clone <repository-url>
+cd kubectl-broker-extension
 go mod download
 
 # Build commands (choose appropriate for your needs)
@@ -405,13 +403,14 @@ make build-small    # Optimized build (35MB vs 53MB)
 make release        # Release build with optimizations
 
 # Installation  
-make install        # Install as kubectl plugin
+make install        # Install as kubectl plugin (standard build)
+make install-small  # Install as kubectl plugin (optimized build)
 make install-auto   # Install with automatic PATH setup
 
 # Development
 make dev           # Build with race detector
 make test          # Test basic functionality
-make check         # Run all code quality checks (fmt, vet, test)
+make check         # Run all code quality checks (fmt, vet, test-go)
 
 # Direct Go commands (also supported)
 go run cmd/kubectl-broker/main.go    # Run directly during development
@@ -461,6 +460,4 @@ kubectl-broker/
 
 ## Support
 
-- [Report Issues](https://github.com/your-repo/kubectl-broker/issues)
-- [Discussions](https://github.com/your-repo/kubectl-broker/discussions)  
-- [Documentation](https://github.com/your-repo/kubectl-broker/wiki)
+For support and feedback, please refer to the project documentation or contact the development team.
