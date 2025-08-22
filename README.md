@@ -15,18 +15,11 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 - **Intelligent Defaults**: Automatically uses StatefulSet "broker" and current kubectl context namespace
 
 ### Backup Management
-- **Complete Backup Operations**: Create, list, download, and monitor backup status
+- **Backup Operations**: Create, list, download, and monitor backup status
 - **Backup Directory Management**: Automatic backup directory moving within pod filesystem
 - **Progress Monitoring**: Real-time status polling with progress indicators
 - **Authentication Support**: Username/password authentication for secured HiveMQ instances
 - **File Download**: Automatic backup download with progress bars
-
-### Technical Features  
-- **Professional Output**: Clean tabular results with response times and status details
-- **Robust Error Handling**: Comprehensive error messages with actionable guidance
-- **Port Discovery**: Automatic health port detection with manual override support
-- **Optimized Binary**: 35MB optimized build (34% reduction from 53MB)
-- **Extensible Architecture**: Subcommand structure supporting health and backup operations
 
 ## Installation
 
