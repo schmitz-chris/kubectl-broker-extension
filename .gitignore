@@ -30,6 +30,8 @@ go.work.sum
 # Editor/IDE
 .idea/
 .vscode/
+
+# binary output
 kubectl-broker
 
 # Backup files and test directories
