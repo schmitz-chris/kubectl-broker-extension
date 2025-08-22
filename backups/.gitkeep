@@ -1,0 +1,2 @@
+# This file keeps the backups directory in git
+# The directory is used by kubectl-broker for storing downloaded backup files

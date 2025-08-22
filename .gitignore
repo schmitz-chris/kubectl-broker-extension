@@ -31,3 +31,6 @@ go.work.sum
 .idea/
 .vscode/
 kubectl-broker
+
+# Backup files and test directories
+backups/*.backup
