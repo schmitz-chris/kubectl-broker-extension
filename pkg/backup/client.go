@@ -149,9 +149,9 @@ func (c *Client) DownloadBackup(backupID string) (*http.Response, error) {
 
 	// Try multiple potential download endpoints
 	endpoints := []string{
-		"/api/v1/management/files/backups/%s",    // Correct HiveMQ download endpoint
+		"/api/v1/management/files/backups/%s", // Correct HiveMQ download endpoint
 		"/api/v1/management/backups/%s/file",
-		"/api/v1/management/backups/%s/download", 
+		"/api/v1/management/backups/%s/download",
 		"/api/v1/management/backups/%s/data",
 	}
 
@@ -172,7 +172,7 @@ func (c *Client) DownloadBackup(backupID string) (*http.Response, error) {
 		// Close non-success response
 		resp.Body.Close()
 		lastErr = c.handleErrorResponse(resp)
-		
+
 		// If not 404, don't try other endpoints
 		if resp.StatusCode != http.StatusNotFound {
 			break

@@ -3,9 +3,11 @@ package pkg
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -16,6 +18,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/util/homedir"
 )
 
@@ -367,4 +370,90 @@ func GetRandomPort() (int, error) {
 
 	addr := listener.Addr().(*net.TCPAddr)
 	return addr.Port, nil
+}
+
+// GetStatefulSetPods retrieves all pods belonging to a StatefulSet (returns slice of Pod values, not pointers)
+func (k *K8sClient) GetStatefulSetPods(ctx context.Context, namespace, statefulSetName string) ([]v1.Pod, error) {
+	pods, err := k.GetPodsFromStatefulSet(ctx, namespace, statefulSetName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert pointer slice to value slice
+	result := make([]v1.Pod, len(pods))
+	for i, pod := range pods {
+		result[i] = *pod
+	}
+
+	return result, nil
+}
+
+// ExecCommand executes a command in a pod and returns the output
+func (k *K8sClient) ExecCommand(ctx context.Context, namespace, podName string, command []string) (string, error) {
+	req := k.coreClient.RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec").
+		VersionedParams(&v1.PodExecOptions{
+			Command: command,
+			Stdout:  true,
+			Stderr:  true,
+		}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(k.config, "POST", req.URL())
+	if err != nil {
+		return "", fmt.Errorf("failed to create SPDY executor: %w", err)
+	}
+
+	// Capture output
+	var stdout, stderr strings.Builder
+	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+
+	if err != nil {
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("command failed: %s", stderr.String())
+		}
+		return "", fmt.Errorf("exec failed: %w", err)
+	}
+
+	return stdout.String(), nil
+}
+
+// ExecCommandStream executes a command in a pod and returns a stream reader for the output
+func (k *K8sClient) ExecCommandStream(ctx context.Context, namespace, podName string, command []string) (io.ReadCloser, error) {
+	req := k.coreClient.RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec").
+		VersionedParams(&v1.PodExecOptions{
+			Command: command,
+			Stdout:  true,
+			Stderr:  true,
+		}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(k.config, "POST", req.URL())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SPDY executor: %w", err)
+	}
+
+	// Create a pipe to stream the output
+	reader, writer := io.Pipe()
+
+	go func() {
+		defer writer.Close()
+		err := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+			Stdout: writer,
+			Stderr: writer,
+		})
+		if err != nil {
+			writer.CloseWithError(fmt.Errorf("exec stream failed: %w", err))
+		}
+	}()
+
+	return reader, nil
 }

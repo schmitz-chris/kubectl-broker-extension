@@ -398,3 +398,175 @@ func formatBytes(bytes int64) string {
 
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
+
+// ValidateDestinationForMoveOnPod checks if the destination path is valid for a move operation on the pod
+func ValidateDestinationForMoveOnPod(ctx context.Context, k8sClient *pkg.K8sClient, namespace, podName, destPath, backupID string) error {
+	// For move operation, check that the final destination directory doesn't exist
+	finalDestination := filepath.Join(destPath, backupID)
+	cmd := []string{"test", "-d", finalDestination}
+	_, err := k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err == nil {
+		return fmt.Errorf("destination directory already exists on pod: %s", finalDestination)
+	}
+
+	// Check if parent directory exists, create if needed
+	cmd = []string{"mkdir", "-p", destPath}
+	_, err = k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err != nil {
+		return fmt.Errorf("cannot create destination parent directory on pod: %w", err)
+	}
+
+	// Test if we can write to the directory
+	testFile := filepath.Join(destPath, ".kubectl-broker-test")
+	cmd = []string{"touch", testFile}
+	_, err = k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err != nil {
+		return fmt.Errorf("destination directory is not writable on pod: %w", err)
+	}
+
+	// Clean up test file
+	cmd = []string{"rm", "-f", testFile}
+	k8sClient.ExecCommand(ctx, namespace, podName, cmd) // Ignore error for cleanup
+
+	return nil
+}
+
+// DetectBackupPod finds which pod in the StatefulSet contains the backup file
+func DetectBackupPod(ctx context.Context, k8sClient *pkg.K8sClient, namespace, statefulSetName, backupID string) (string, error) {
+	// Get pods from the StatefulSet
+	pods, err := k8sClient.GetStatefulSetPods(ctx, namespace, statefulSetName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get StatefulSet pods: %w", err)
+	}
+
+	if len(pods) == 0 {
+		return "", fmt.Errorf("no pods found in StatefulSet %s", statefulSetName)
+	}
+
+	// Get backup folder location from the first pod
+	backupFolder, err := GetBackupFolder(ctx, k8sClient, namespace, pods[0].Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get backup folder location: %w", err)
+	}
+
+	// Check each pod for the backup file
+	for _, pod := range pods {
+		if pod.Status.Phase != v1.PodRunning {
+			continue // Skip non-running pods
+		}
+
+		// Check if backup directory exists on this pod
+		backupDir := filepath.Join(backupFolder, backupID)
+		exists, err := directoryExistsOnPod(ctx, k8sClient, namespace, pod.Name, backupDir)
+		if err != nil {
+			continue // Try next pod if this one fails
+		}
+
+		if exists {
+			return pod.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("backup file %s not found on any pod in StatefulSet %s", backupID, statefulSetName)
+}
+
+// GetBackupFolder determines the backup folder path on a HiveMQ pod
+func GetBackupFolder(ctx context.Context, k8sClient *pkg.K8sClient, namespace, podName string) (string, error) {
+	// First, try to get the backup folder from environment variable
+	cmd := []string{"printenv", "HIVEMQ_BACKUP_FOLDER"}
+	output, err := k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err == nil && strings.TrimSpace(output) != "" {
+		return strings.TrimSpace(output), nil
+	}
+
+	// Fallback to default HiveMQ backup folder
+	return "/opt/hivemq/backup", nil
+}
+
+// fileExistsOnPod checks if a file exists on the specified pod
+func fileExistsOnPod(ctx context.Context, k8sClient *pkg.K8sClient, namespace, podName, filePath string) (bool, error) {
+	cmd := []string{"test", "-f", filePath}
+	_, err := k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	return err == nil, nil
+}
+
+// directoryExistsOnPod checks if a directory exists on the specified pod
+func directoryExistsOnPod(ctx context.Context, k8sClient *pkg.K8sClient, namespace, podName, dirPath string) (bool, error) {
+	cmd := []string{"test", "-d", dirPath}
+	_, err := k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	return err == nil, nil
+}
+
+// MoveBackupDirectoryWithinPod moves a backup directory to another location within the same pod
+func MoveBackupDirectoryWithinPod(ctx context.Context, k8sClient *pkg.K8sClient, namespace, podName, backupID, backupFolder, destination string) error {
+	backupDir := filepath.Join(backupFolder, backupID)
+	destinationDir := filepath.Join(destination, backupID)
+
+	fmt.Printf("Moving backup directory from %s to %s on pod %s\n", backupDir, destinationDir, podName)
+
+	// Use kubectl exec to move the directory within the pod
+	cmd := []string{"mv", backupDir, destinationDir}
+	output, err := k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to move backup directory within pod: %w", err)
+	}
+
+	// Verify the move was successful by checking if destination exists and source doesn't
+	cmd = []string{"test", "-d", destinationDir}
+	_, err = k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to verify moved directory: destination not found")
+	}
+
+	// Verify source directory no longer exists
+	cmd = []string{"test", "-d", backupDir}
+	_, err = k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err == nil {
+		return fmt.Errorf("move failed: source directory still exists at %s", backupDir)
+	}
+
+	// Get directory size for confirmation
+	cmd = []string{"du", "-sh", destinationDir}
+	sizeOutput, err := k8sClient.ExecCommand(ctx, namespace, podName, cmd)
+	if err == nil {
+		sizeOutput = strings.TrimSpace(sizeOutput)
+		if parts := strings.Fields(sizeOutput); len(parts) > 0 {
+			fmt.Printf("Successfully moved backup directory to %s (size: %s)\n", destinationDir, parts[0])
+		}
+	} else {
+		fmt.Printf("Successfully moved backup directory to %s\n", destinationDir)
+	}
+
+	if output != "" {
+		fmt.Printf("Move output: %s\n", output)
+	}
+
+	return nil
+}
+
+// MoveBackupToDestination orchestrates the complete backup move process within the pod
+func MoveBackupToDestination(ctx context.Context, k8sClient *pkg.K8sClient, namespace, statefulSetName, backupID, destination string) error {
+	// Find which pod has the backup
+	podName, err := DetectBackupPod(ctx, k8sClient, namespace, statefulSetName, backupID)
+	if err != nil {
+		return fmt.Errorf("backup pod detection failed: %w", err)
+	}
+
+	// Validate destination on the pod for move operation
+	if err := ValidateDestinationForMoveOnPod(ctx, k8sClient, namespace, podName, destination, backupID); err != nil {
+		return fmt.Errorf("destination validation failed: %w", err)
+	}
+
+	// Get backup folder location
+	backupFolder, err := GetBackupFolder(ctx, k8sClient, namespace, podName)
+	if err != nil {
+		return fmt.Errorf("failed to get backup folder: %w", err)
+	}
+
+	// Move the backup directory within the pod
+	if err := MoveBackupDirectoryWithinPod(ctx, k8sClient, namespace, podName, backupID, backupFolder, destination); err != nil {
+		return fmt.Errorf("directory move failed: %w", err)
+	}
+
+	return nil
+}

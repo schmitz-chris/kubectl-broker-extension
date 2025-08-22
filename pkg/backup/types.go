@@ -39,9 +39,9 @@ type BackupData struct {
 // BackupInfo represents full backup details from the HiveMQ API
 type BackupInfo struct {
 	ID        string       `json:"id"`
-	Status    BackupStatus `json:"state"`  // HiveMQ API uses "state" not "status"
+	Status    BackupStatus `json:"state"` // HiveMQ API uses "state" not "status"
 	CreatedAt time.Time    `json:"createdAt"`
-	Size      int64        `json:"bytes"`  // HiveMQ API uses "bytes" not "size"
+	Size      int64        `json:"bytes"` // HiveMQ API uses "bytes" not "size"
 	Filename  string       `json:"filename,omitempty"`
 }
 
@@ -53,9 +53,9 @@ type BackupListResponse struct {
 // BackupStatusResponse represents the response when checking backup status
 type BackupStatusResponse struct {
 	ID        string       `json:"id"`
-	Status    BackupStatus `json:"state"`  // HiveMQ API uses "state" not "status"
+	Status    BackupStatus `json:"state"` // HiveMQ API uses "state" not "status"
 	CreatedAt time.Time    `json:"createdAt"`
-	Size      int64        `json:"bytes"`  // HiveMQ API uses "bytes" not "size"
+	Size      int64        `json:"bytes"` // HiveMQ API uses "bytes" not "size"
 	Progress  int          `json:"progress,omitempty"`
 	Message   string       `json:"message,omitempty"`
 }
@@ -88,6 +88,7 @@ type BackupOptions struct {
 	Timeout      time.Duration // timeout for backup operations
 	PollInterval time.Duration // interval for status polling
 	ShowProgress bool          // show progress indicators
+	Destination  string        // local destination path for copying backup files from pods
 }
 
 // DefaultBackupOptions provides sensible defaults for backup operations

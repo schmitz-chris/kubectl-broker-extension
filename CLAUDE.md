@@ -78,6 +78,10 @@ kubectl broker backup download --latest --output-dir ./backups             # Dow
 kubectl broker backup status --id abc123                                   # Check backup status
 kubectl broker backup status --latest                                      # Check latest backup status
 
+# Backup directory moving (Phase 8 enhancement) - moves within pod filesystem
+kubectl broker backup create --destination /opt/hivemq/data/backup  # Move to data directory
+kubectl broker backup create --destination /tmp --namespace production  # Move to tmp directory
+
 # With authentication (optional)
 kubectl broker backup create --username admin --password secret
 ```
@@ -133,10 +137,19 @@ The tool has completed all planned development phases:
 - Four backup subcommands: create, list, download, status
 - Intelligent defaults and consistent UX with existing health monitoring
 - Progress indicators and status polling for long-running operations
-- File download with progress bars and automatic filename handling
+  - File download with progress bars and automatic filename handling
 - Color-coded status display matching health command patterns
 - Comprehensive error handling with actionable guidance
 - Authentication support for secured HiveMQ instances
+
+### ✅ Phase 8: Backup Directory Move Enhancement (Completed)
+- Automatic backup directory moving within pod filesystem using `--destination` flag
+- Environment variable detection for backup folder location (`HIVEMQ_BACKUP_FOLDER`)
+- Intelligent pod discovery to locate backup directories across StatefulSet instances
+- Safety validations including destination path checks and overwrite protection on pods
+- kubectl exec integration for secure move operations within pods
+- Seamless integration with existing backup create workflow
+- Move operation preserves directory structure and removes original location
 
 ### 🚀 Binary Size Optimization (Completed)
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports

@@ -20,7 +20,7 @@ var (
 	backupPassword        string
 
 	// Create command flags
-	// (uses global flags)
+	createDestination string
 
 	// List command flags
 	// (uses global flags)
@@ -85,9 +85,12 @@ func newBackupCreateCommand() *cobra.Command {
 1. Connect to the broker's management API
 2. Initiate a backup operation
 3. Monitor progress until completion
-4. Display the final backup ID and size`,
+4. Display the final backup ID and size
+5. Optionally move backup directory to another location within the pod`,
 		RunE: runBackupCreate,
 	}
+
+	createCmd.Flags().StringVar(&createDestination, "destination", "", "Pod path to move backup directory to after creation (e.g., /opt/hivemq/data/backup)")
 
 	return createCmd
 }
@@ -194,6 +197,7 @@ func runBackupCreate(cmd *cobra.Command, args []string) error {
 		Timeout:      5 * time.Minute,
 		PollInterval: 2 * time.Second,
 		ShowProgress: true,
+		Destination:  createDestination,
 	}
 
 	// Create backup
@@ -206,6 +210,22 @@ func runBackupCreate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Backup ID: %s\n", backupInfo.ID)
 	fmt.Printf("Status: %s\n", getStatusColor(backupInfo.Status).Sprint(string(backupInfo.Status)))
 	fmt.Printf("Size: %s | Created: %s\n", formatBytes(backupInfo.Size), backupInfo.CreatedAt.Format(time.RFC3339))
+
+	// Move backup directory to destination if specified
+	if createDestination != "" {
+		fmt.Printf("\nMoving backup directory to destination...\n")
+		err := backup.MoveBackupToDestination(
+			context.Background(),
+			k8sClient,
+			backupNamespace,
+			backupStatefulSetName,
+			backupInfo.ID,
+			createDestination,
+		)
+		if err != nil {
+			return fmt.Errorf("backup move failed: %w", err)
+		}
+	}
 
 	return nil
 }
