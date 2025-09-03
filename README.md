@@ -371,7 +371,7 @@ kubectl auth can-i create pods/portforward --namespace your-namespace
 ### Port Discovery Issues
 If automatic port discovery fails, use manual override:
 ```bash
-kubectl broker --statefulset broker --namespace your-namespace --port 9090
+kubectl broker status --statefulset broker --namespace your-namespace --port 9090
 ```
 
 ### Connection Issues
