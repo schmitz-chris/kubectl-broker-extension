@@ -300,8 +300,8 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 	}
 
 	// Display header
-	fmt.Printf("VOLUME NAME                               SIZE     AGE      STATUS       NAMESPACE\n")
-	fmt.Printf("----------------------------------------  -------  -------  -----------  ---------\n")
+	fmt.Printf("VOLUME NAME                               SIZE     USED     AVAIL    USAGE%%  AGE      STATUS       NAMESPACE\n")
+	fmt.Printf("----------------------------------------  -------  -------  -------  ------  -------  -----------  ---------\n")
 
 	// Display released PVs
 	for _, pv := range result.ReleasedPVs {
@@ -312,9 +312,15 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 			namespace = pv.Spec.ClaimRef.Namespace
 		}
 		
-		fmt.Printf("%-40s  %-7s  %-7s  %s  %s\n",
+		// Released PVs don't have usage data
+		used, available, usagePercent := "-", "-", "-"
+		
+		fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
 			truncateString(pv.Name, 40),
 			formatStorageSize(pv.Spec.Capacity["storage"]),
+			used,
+			available,
+			usagePercent,
 			formatDuration(age),
 			statusColor.Sprint("RELEASED"),
 			namespace)
@@ -325,9 +331,15 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		age := time.Since(pvc.CreationTimestamp.Time).Round(24 * time.Hour)
 		statusColor := getVolumeStatusColor("ORPHANED", options.UseColors)
 		
-		fmt.Printf("%-40s  %-7s  %-7s  %s  %s\n",
+		// Orphaned PVCs don't have usage data
+		used, available, usagePercent := "-", "-", "-"
+		
+		fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
 			truncateString(pvc.Name, 40),
 			formatStorageSize(pvc.Spec.Resources.Requests["storage"]),
+			used,
+			available,
+			usagePercent,
 			formatDuration(age),
 			statusColor.Sprint("ORPHANED"),
 			pvc.Namespace)
@@ -338,9 +350,15 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		for _, volume := range result.BoundVolumes {
 			statusColor := getVolumeStatusColor("BOUND", options.UseColors)
 			
-			fmt.Printf("%-40s  %-7s  %-7s  %s  %s\n",
+			// Get usage information for bound volumes
+			used, available, usagePercent := formatUsageInfo(volume.Usage)
+			
+			fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
 				truncateString(volume.PVC.Name, 40),
 				formatStorageSize(volume.PVC.Spec.Resources.Requests["storage"]),
+				used,
+				available,
+				usagePercent,
 				formatDuration(volume.Age),
 				statusColor.Sprint("BOUND"),
 				volume.Namespace)
@@ -452,5 +470,18 @@ func formatStorageSize(quantity interface{}) string {
 	
 	// Fallback for unknown types
 	return fmt.Sprintf("%v", quantity)
+}
+
+// formatUsageInfo formats volume usage information with fallback to "-" when not available
+func formatUsageInfo(usage *volumes.VolumeUsage) (string, string, string) {
+	if usage == nil {
+		return "-", "-", "-"
+	}
+	
+	used := formatBytes(usage.UsedBytes)
+	available := formatBytes(usage.AvailableBytes)
+	usagePercent := fmt.Sprintf("%.0f%%", usage.UsagePercent)
+	
+	return used, available, usagePercent
 }
 

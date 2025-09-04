@@ -43,6 +43,8 @@ type VolumeInfo struct {
 	IsHiveMQVolume    bool
 	ReclaimPolicy     v1.PersistentVolumeReclaimPolicy
 	StorageClass      string
+	// Volume usage information
+	Usage             *VolumeUsage
 }
 
 // VolumeType represents the type of volume issue

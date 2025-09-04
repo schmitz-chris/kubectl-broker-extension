@@ -16,10 +16,17 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 
 ### Backup Management
 - **Backup Operations**: Create, list, download, and monitor backup status
-- **Backup Directory Management**: Automatic backup directory moving within pod filesystemclear
+- **Backup Directory Management**: Automatic backup directory moving within pod filesystem
 - **Progress Monitoring**: Real-time status polling with progress indicators
 - **Authentication Support**: Username/password authentication for secured HiveMQ instances
 - **File Download**: Automatic backup download with progress bars
+
+### Volume Management
+- **Volume Discovery**: List and analyze persistent volumes and claims across clusters
+- **Orphaned Volume Detection**: Identify volumes without associated pods for cleanup
+- **Storage Cleanup**: Safe deletion of released and orphaned volumes with dry-run support
+- **Usage Analysis**: Comprehensive storage usage insights and reclaimable space reporting
+- **Safety Features**: Age and size filtering with confirmation prompts for safe operations
 
 ## Installation
 
@@ -77,6 +84,9 @@ kubectl broker status [options]
 
 # Backup management  
 kubectl broker backup [subcommand] [options]
+
+# Volume management
+kubectl broker volumes [subcommand] [options]
 ```
 
 ### Health Diagnostics (`status` subcommand)
@@ -128,6 +138,40 @@ kubectl broker backup create --username admin --password secret
 
 # Move backup to different directory within pod
 kubectl broker backup create --destination /opt/hivemq/data/backup
+```
+
+### Volume Management (`volumes` subcommand)
+
+```bash
+# List volumes in current namespace
+kubectl broker volumes list
+
+# List only orphaned volumes (PVCs without pods)
+kubectl broker volumes list --orphaned
+
+# List only released persistent volumes
+kubectl broker volumes list --released
+
+# List all volumes including bound ones
+kubectl broker volumes list --all
+
+# Cluster-wide volume listing
+kubectl broker volumes list --all-namespaces
+
+# Preview cleanup (dry-run)
+kubectl broker volumes cleanup --dry-run
+
+# Clean up orphaned volumes (requires confirmation)
+kubectl broker volumes cleanup --confirm
+
+# Cluster-wide cleanup with age filter
+kubectl broker volumes cleanup --all-namespaces --older-than 30d --confirm
+
+# Discover volumes across entire cluster
+kubectl broker volumes discover
+
+# Filter by size (show volumes larger than 1GB)
+kubectl broker volumes list --min-size 1Gi --all-namespaces
 ```
 
 ### Intelligent Defaults
@@ -266,6 +310,63 @@ File: ./backups/hivemq-backup-20250819-143025.zip
 Size: 1.2 MB
 ```
 
+### Volume Management Examples
+
+#### List Volumes
+```bash
+kubectl broker volumes list --orphaned
+```
+Output:
+```
+Using namespace: production-hivemq (from kubeconfig context)
+
+VOLUME NAME                               SIZE     AGE      STATUS       NAMESPACE
+----------------------------------------  -------  -------  -----------  ---------
+data-broker-0                            10Gi     7d       ORPHANED     production-hivemq
+data-broker-1                            10Gi     7d       ORPHANED     production-hivemq
+backup-storage-broker-2                  5Gi      3d       ORPHANED     production-hivemq
+
+Summary: 0 released PVs, 3 orphaned PVCs
+Total reclaimable storage: 25Gi
+```
+
+#### Volume Cleanup (Dry Run)
+```bash
+kubectl broker volumes cleanup --dry-run --older-than 7d
+```
+Output:
+```
+Using namespace: production-hivemq (from kubeconfig context)
+
+DRY RUN - Would delete:
+- Released PVs: 0
+- Orphaned PVCs: 2
+- Storage reclaimed: 20Gi
+
+Use --confirm to proceed with deletion.
+```
+
+#### Volume Discovery
+```bash
+kubectl broker volumes discover
+```
+Output:
+```
+Discovering volumes across cluster...
+
+Volume Discovery Summary
+========================
+
+Total Persistent Volumes: 15
+Total Persistent Volume Claims: 12
+Released PVs (reclaimable): 2
+Orphaned PVCs: 5
+
+Total reclaimable storage: 45Gi
+
+Namespaces with orphaned volumes: 3
+```
+
 ## Command Line Reference
 
 ### Global Flags
@@ -328,10 +429,40 @@ Size: 1.2 MB
 | `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
 | `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
 
+### Volumes Subcommand Flags
+
+#### List Volumes
+| Flag               | Description                                    | Required   | Example                               |
+|--------------------|------------------------------------------------|------------|---------------------------------------|
+| `--namespace, -n`  | Kubernetes namespace                           | Optional** | `--namespace production`              |
+| `--all-namespaces` | List volumes across all namespaces            | No         | `--all-namespaces`                    |
+| `--older-than`     | Show volumes older than specified duration     | No         | `--older-than 30d`                    |
+| `--min-size`       | Show volumes larger than specified size        | No         | `--min-size 1Gi`                      |
+| `--released`       | Show only released persistent volumes          | No         | `--released`                          |
+| `--orphaned`       | Show only orphaned PVCs (without pods)        | No         | `--orphaned`                          |
+| `--all`            | Show all volumes including bound ones          | No         | `--all`                               |
+
+#### Cleanup Volumes
+| Flag               | Description                                    | Required   | Example                               |
+|--------------------|------------------------------------------------|------------|---------------------------------------|
+| `--namespace, -n`  | Kubernetes namespace                           | Optional** | `--namespace production`              |
+| `--all-namespaces` | Clean volumes across all namespaces           | No         | `--all-namespaces`                    |
+| `--older-than`     | Only delete volumes older than specified       | No         | `--older-than 30d`                    |
+| `--min-size`       | Only delete volumes larger than specified size | No         | `--min-size 1Gi`                      |
+| `--dry-run`        | Preview what would be deleted                  | Optional**** | `--dry-run`                          |
+| `--confirm`        | Confirm deletion (required for actual deletion) | Optional**** | `--confirm`                         |
+| `--force`          | Skip confirmation prompts (dangerous!)        | No         | `--force`                             |
+
+#### Discover Volumes
+| Flag               | Description                                    | Required   | Example                               |
+|--------------------|------------------------------------------------|------------|---------------------------------------|
+| None               | Operates cluster-wide by default              | N/A        | `kubectl broker volumes discover`     |
+
 ### Notes
 *If not specified, defaults to `broker`  
 **Defaults to current kubectl context namespace  
-***Either `--id` or `--latest` must be specified
+***Either `--id` or `--latest` must be specified  
+****Either `--dry-run` or `--confirm` must be specified for cleanup
 
 ## Architecture
 
@@ -428,14 +559,19 @@ kubectl-broker/
 ├── cmd/kubectl-broker/       # Main application with subcommand architecture
 │   ├── main.go              # Root command and CLI entry point
 │   ├── status.go            # Health diagnostics subcommand
-│   └── backup.go            # Backup management subcommand
+│   ├── backup.go            # Backup management subcommand
+│   └── volumes.go           # Volume management subcommand
 ├── pkg/                     # Core functionality packages
 │   ├── k8s.go              # Kubernetes client (optimized with typed clients)
 │   ├── health/             # HiveMQ Health API parsing and analysis
-│   └── backup/             # HiveMQ backup operations and REST API client
-│       ├── client.go       # REST API client for backup operations
-│       ├── operations.go   # Backup CRUD operations
-│       └── types.go        # Data structures and response types
+│   ├── backup/             # HiveMQ backup operations and REST API client
+│   │   ├── client.go       # REST API client for backup operations
+│   │   ├── operations.go   # Backup CRUD operations
+│   │   └── types.go        # Data structures and response types
+│   └── volumes/            # Volume management and cleanup operations
+│       ├── analyzer.go     # Volume discovery and analysis
+│       ├── cleaner.go      # Volume cleanup operations
+│       └── types.go        # Volume data structures
 ├── Makefile                # Professional build system with optimization
 ├── install.sh              # Automated kubectl plugin installation script
 ├── CLAUDE.md               # Development guidance for Claude Code

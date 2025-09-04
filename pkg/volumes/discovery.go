@@ -30,15 +30,18 @@ func (a *Analyzer) AnalyzeVolumes(ctx context.Context, options AnalysisOptions) 
 		NamespaceStats: make(map[string]*NamespaceVolumeStats),
 	}
 
+	// Initialize usage collector for getting volume usage statistics
+	usageCollector := NewVolumeUsageCollector(a.k8sClient)
+
 	if options.AllNamespaces {
-		return a.analyzeClusterWide(ctx, options, result)
+		return a.analyzeClusterWide(ctx, options, result, usageCollector)
 	} else {
-		return a.analyzeNamespace(ctx, options.Namespace, options, result)
+		return a.analyzeNamespace(ctx, options.Namespace, options, result, usageCollector)
 	}
 }
 
 // analyzeClusterWide performs cluster-wide volume analysis
-func (a *Analyzer) analyzeClusterWide(ctx context.Context, options AnalysisOptions, result *AnalysisResult) (*AnalysisResult, error) {
+func (a *Analyzer) analyzeClusterWide(ctx context.Context, options AnalysisOptions, result *AnalysisResult, usageCollector *VolumeUsageCollector) (*AnalysisResult, error) {
 	// Get all PVs in cluster
 	pvs, err := a.getAllPersistentVolumes(ctx)
 	if err != nil {
@@ -70,9 +73,20 @@ func (a *Analyzer) analyzeClusterWide(ctx context.Context, options AnalysisOptio
 	}
 	result.TotalPVCs = len(allPVCs)
 
+	// Collect volume usage statistics for all namespaces
+	var volumeUsageMap map[string]*VolumeUsage
+	if usageCollector != nil {
+		volumeUsageMap, err = usageCollector.GetAllVolumeUsage(ctx)
+		if err != nil {
+			// Log warning but continue without usage data
+			fmt.Printf("Warning: failed to collect volume usage statistics: %v\n", err)
+			volumeUsageMap = make(map[string]*VolumeUsage)
+		}
+	}
+
 	// Analyze PVCs for orphaned ones
 	for _, pvc := range allPVCs {
-		if err := a.analyzePersistentVolumeClaim(ctx, pvc, options, result); err != nil {
+		if err := a.analyzePersistentVolumeClaim(ctx, pvc, options, result, volumeUsageMap); err != nil {
 			return nil, fmt.Errorf("failed to analyze PVC %s: %w", pvc.Name, err)
 		}
 	}
@@ -84,7 +98,7 @@ func (a *Analyzer) analyzeClusterWide(ctx context.Context, options AnalysisOptio
 }
 
 // analyzeNamespace performs namespace-specific volume analysis
-func (a *Analyzer) analyzeNamespace(ctx context.Context, namespace string, options AnalysisOptions, result *AnalysisResult) (*AnalysisResult, error) {
+func (a *Analyzer) analyzeNamespace(ctx context.Context, namespace string, options AnalysisOptions, result *AnalysisResult, usageCollector *VolumeUsageCollector) (*AnalysisResult, error) {
 	// Get PVCs in the specific namespace
 	pvcs, err := a.getPersistentVolumeClaimsInNamespace(ctx, namespace)
 	if err != nil {
@@ -92,9 +106,20 @@ func (a *Analyzer) analyzeNamespace(ctx context.Context, namespace string, optio
 	}
 	result.TotalPVCs = len(pvcs)
 
+	// Collect volume usage statistics for this namespace
+	var volumeUsageMap map[string]*VolumeUsage
+	if usageCollector != nil {
+		volumeUsageMap, err = usageCollector.GetVolumeUsage(ctx, namespace)
+		if err != nil {
+			// Log warning but continue without usage data
+			fmt.Printf("Warning: failed to collect volume usage statistics: %v\n", err)
+			volumeUsageMap = make(map[string]*VolumeUsage)
+		}
+	}
+
 	// Analyze each PVC for orphaned status
 	for _, pvc := range pvcs {
-		if err := a.analyzePersistentVolumeClaim(ctx, pvc, options, result); err != nil {
+		if err := a.analyzePersistentVolumeClaim(ctx, pvc, options, result, volumeUsageMap); err != nil {
 			return nil, fmt.Errorf("failed to analyze PVC %s: %w", pvc.Name, err)
 		}
 	}
@@ -158,7 +183,7 @@ func (a *Analyzer) analyzePersistentVolume(ctx context.Context, pv *v1.Persisten
 }
 
 // analyzePersistentVolumeClaim analyzes a single persistent volume claim
-func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.PersistentVolumeClaim, options AnalysisOptions, result *AnalysisResult) error {
+func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.PersistentVolumeClaim, options AnalysisOptions, result *AnalysisResult, volumeUsageMap map[string]*VolumeUsage) error {
 	age := time.Since(pvc.CreationTimestamp.Time)
 	
 	// Check if PVC is bound - if not bound, it might be orphaned
@@ -211,6 +236,13 @@ func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.Per
 			Age:            age,
 			Namespace:      pvc.Namespace,
 			IsHiveMQVolume: IsHiveMQVolume(pvc.Name, pvc.Namespace),
+		}
+
+		// Add volume usage information if available
+		if volumeUsageMap != nil {
+			if usage, exists := volumeUsageMap[pvc.Name]; exists {
+				volumeInfo.Usage = usage
+			}
 		}
 
 		// Try to find associated pods
