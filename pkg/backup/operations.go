@@ -343,7 +343,7 @@ func RestoreBackup(ctx context.Context, k8sClient *pkg.K8sClient, service *v1.Se
 		fmt.Printf("\nRestore ID: %s\n", restoreResp.ID)
 		fmt.Printf("Backup ID: %s\n", backupID)
 		fmt.Printf("Status: %s\n", statusColor.Sprint(string(status.Status)))
-		
+
 		if status.Message != "" {
 			fmt.Printf("Message: %s\n", status.Message)
 		}
@@ -424,7 +424,7 @@ func waitForRestoreCompletion(client *Client, backupID string, options BackupOpt
 			}
 			return nil
 		}
-		
+
 		if status.Status == StatusRestoreFailed {
 			return fmt.Errorf("restore failed")
 		}

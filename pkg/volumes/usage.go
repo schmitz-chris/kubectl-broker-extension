@@ -24,7 +24,7 @@ type VolumeUsage struct {
 
 // NodeStatsResponse represents the response from kubelet stats/summary endpoint
 type NodeStatsResponse struct {
-	Node NodeStats `json:"node"`
+	Node NodeStats  `json:"node"`
 	Pods []PodStats `json:"pods"`
 }
 
@@ -42,14 +42,14 @@ type NodeStats struct {
 
 // PodStats represents pod-level statistics
 type PodStats struct {
-	PodRef        PodReference    `json:"podRef"`
-	StartTime     time.Time       `json:"startTime"`
-	Containers    []ContainerStat `json:"containers"`
-	CPU           ResourceUsage   `json:"cpu"`
-	Memory        ResourceUsage   `json:"memory"`
-	Network       NetworkUsage    `json:"network"`
-	VolumeStats   []VolumeStat    `json:"volume,omitempty"`
-	EphemeralStorage FsUsage      `json:"ephemeral-storage,omitempty"`
+	PodRef           PodReference    `json:"podRef"`
+	StartTime        time.Time       `json:"startTime"`
+	Containers       []ContainerStat `json:"containers"`
+	CPU              ResourceUsage   `json:"cpu"`
+	Memory           ResourceUsage   `json:"memory"`
+	Network          NetworkUsage    `json:"network"`
+	VolumeStats      []VolumeStat    `json:"volume,omitempty"`
+	EphemeralStorage FsUsage         `json:"ephemeral-storage,omitempty"`
 }
 
 // PodReference represents a reference to a pod
@@ -79,15 +79,15 @@ type SystemContainer struct {
 
 // VolumeStat represents volume-level statistics
 type VolumeStat struct {
-	Time                 time.Time `json:"time"`
-	AvailableBytes       *int64    `json:"availableBytes,omitempty"`
-	CapacityBytes        *int64    `json:"capacityBytes,omitempty"`
-	UsedBytes            *int64    `json:"usedBytes,omitempty"`
-	InodesFree           *int64    `json:"inodesFree,omitempty"`
-	Inodes               *int64    `json:"inodes,omitempty"`
-	InodesUsed           *int64    `json:"inodesUsed,omitempty"`
-	Name                 string    `json:"name"`
-	PVCRef               *PVCReference `json:"pvcRef,omitempty"`
+	Time           time.Time     `json:"time"`
+	AvailableBytes *int64        `json:"availableBytes,omitempty"`
+	CapacityBytes  *int64        `json:"capacityBytes,omitempty"`
+	UsedBytes      *int64        `json:"usedBytes,omitempty"`
+	InodesFree     *int64        `json:"inodesFree,omitempty"`
+	Inodes         *int64        `json:"inodes,omitempty"`
+	InodesUsed     *int64        `json:"inodesUsed,omitempty"`
+	Name           string        `json:"name"`
+	PVCRef         *PVCReference `json:"pvcRef,omitempty"`
 }
 
 // PVCReference represents a reference to a PVC
@@ -181,7 +181,7 @@ func (c *VolumeUsageCollector) getNodeVolumeStats(ctx context.Context, nodeName,
 
 	// Create request to kubelet stats endpoint
 	statsPath := fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", nodeName)
-	
+
 	// Get stats from kubelet via proxy
 	data, err := c.k8sClient.GetCoreClient().RESTClient().Get().
 		AbsPath(statsPath).

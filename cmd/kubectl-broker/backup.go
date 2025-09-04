@@ -34,7 +34,7 @@ var (
 	// Status command flags
 	statusBackupID string
 	statusLatest   bool
-	
+
 	// Restore command flags
 	restoreBackupID string
 	restoreLatest   bool

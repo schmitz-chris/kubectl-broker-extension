@@ -9,8 +9,8 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubectl-broker/pkg"
 )
 
@@ -236,7 +236,7 @@ func (c *Cleaner) displayDryRunPreview(result *CleanupResult, options CleanupOpt
 	}
 
 	fmt.Printf("DRY RUN - The following %d volumes would be deleted:\n\n", len(result.DryRunPreview))
-	
+
 	// Display header
 	fmt.Printf("TYPE                    NAME                                  NAMESPACE                             AGE     SIZE    REASON\n")
 	fmt.Printf("----------------------  ------------------------------------  ------------------------------------  ------  ------  -------------------------\n")
@@ -268,11 +268,11 @@ func (c *Cleaner) confirmCleanup(result *CleanupResult, options CleanupOptions) 
 
 	fmt.Printf("About to delete %d volumes reclaiming %s of storage.\n",
 		len(result.DryRunPreview), formatSize(result.TotalReclaimedStorage))
-	
+
 	// Show summary by type
 	pvCount := countActionsByType(result.DryRunPreview, "PersistentVolume")
 	pvcCount := countActionsByType(result.DryRunPreview, "PersistentVolumeClaim")
-	
+
 	if pvCount > 0 {
 		fmt.Printf("- %d Released PersistentVolumes\n", pvCount)
 	}
@@ -306,7 +306,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 	// Delete PersistentVolumes
 	for i, pv := range pvs {
 		fmt.Printf("[%d/%d] Deleting PV %s...", i+1, len(pvs), pv.Name)
-		
+
 		err := coreClient.PersistentVolumes().Delete(ctx, pv.Name, metav1.DeleteOptions{})
 		if err != nil {
 			fmt.Printf(" FAILED\n")
@@ -319,7 +319,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 		} else {
 			fmt.Printf(" OK\n")
 			result.DeletedPVs = append(result.DeletedPVs, pv.Name)
-			
+
 			// Add to reclaimed storage
 			if storage, ok := pv.Spec.Capacity[v1.ResourceStorage]; ok {
 				result.TotalReclaimedStorage += storage.Value()
@@ -337,7 +337,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 
 		// Delete PVC first
 		fmt.Printf("[%d/%d] Deleting PVC %s in namespace %s...", i+1, len(pvcs), pvc.Name, pvc.Namespace)
-		
+
 		err = coreClient.PersistentVolumeClaims(pvc.Namespace).Delete(ctx, pvc.Name, metav1.DeleteOptions{})
 		if err != nil {
 			fmt.Printf(" FAILED\n")
@@ -351,7 +351,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 		} else {
 			fmt.Printf(" OK")
 			result.DeletedPVCs = append(result.DeletedPVCs, pvc.Name)
-			
+
 			// Add to reclaimed storage
 			if storage, ok := pvc.Spec.Resources.Requests[v1.ResourceStorage]; ok {
 				result.TotalReclaimedStorage += storage.Value()
@@ -361,7 +361,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 		// Now delete associated PV if found
 		if associatedPV != nil {
 			fmt.Printf(" + Deleting associated PV %s...", associatedPV.Name)
-			
+
 			err = coreClient.PersistentVolumes().Delete(ctx, associatedPV.Name, metav1.DeleteOptions{})
 			if err != nil {
 				fmt.Printf(" FAILED\n")
@@ -374,7 +374,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 			} else {
 				fmt.Printf(" OK\n")
 				result.DeletedPVs = append(result.DeletedPVs, associatedPV.Name)
-				
+
 				// Add PV storage to reclaimed total (avoid double counting)
 				if pvcStorage, ok := pvc.Spec.Resources.Requests[v1.ResourceStorage]; ok {
 					if pvStorage, ok := associatedPV.Spec.Capacity[v1.ResourceStorage]; ok {
@@ -481,9 +481,9 @@ func (c *Cleaner) findAssociatedPV(ctx context.Context, pvc *v1.PersistentVolume
 	}
 
 	// Verify this PV is actually bound to our PVC
-	if pv.Spec.ClaimRef != nil && 
-	   pv.Spec.ClaimRef.Name == pvc.Name && 
-	   pv.Spec.ClaimRef.Namespace == pvc.Namespace {
+	if pv.Spec.ClaimRef != nil &&
+		pv.Spec.ClaimRef.Name == pvc.Name &&
+		pv.Spec.ClaimRef.Namespace == pvc.Namespace {
 		return pv, nil
 	}
 

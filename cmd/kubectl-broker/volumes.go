@@ -14,17 +14,17 @@ import (
 
 var (
 	// Global volumes flags
-	volumesNamespace   string
+	volumesNamespace     string
 	volumesAllNamespaces bool
-	volumesMinAge      string
-	volumesMinSize     string
-	volumesDryRun      bool
-	volumesConfirm     bool
-	volumesForce       bool
-	volumesShowReleased bool
-	volumesShowOrphaned bool
-	volumesShowAll     bool
-	volumesShowDetailed bool
+	volumesMinAge        string
+	volumesMinSize       string
+	volumesDryRun        bool
+	volumesConfirm       bool
+	volumesForce         bool
+	volumesShowReleased  bool
+	volumesShowOrphaned  bool
+	volumesShowAll       bool
+	volumesShowDetailed  bool
 )
 
 func newVolumesCommand() *cobra.Command {
@@ -159,15 +159,15 @@ func runVolumesList(cmd *cobra.Command, args []string) error {
 
 	// Set up analysis options
 	options := volumes.AnalysisOptions{
-		Namespace:      volumesNamespace,
-		AllNamespaces:  volumesAllNamespaces,
-		MinAge:         parseMinAge(volumesMinAge),
-		MinSize:        volumesMinSize,
-		ShowReleased:   volumesShowReleased,
-		ShowOrphaned:   volumesShowOrphaned,
-		ShowAll:        volumesShowAll,
-		ShowDetailed:   volumesShowDetailed,
-		UseColors:      true,
+		Namespace:     volumesNamespace,
+		AllNamespaces: volumesAllNamespaces,
+		MinAge:        parseMinAge(volumesMinAge),
+		MinSize:       volumesMinSize,
+		ShowReleased:  volumesShowReleased,
+		ShowOrphaned:  volumesShowOrphaned,
+		ShowAll:       volumesShowAll,
+		ShowDetailed:  volumesShowDetailed,
+		UseColors:     true,
 	}
 
 	// Perform analysis
@@ -292,7 +292,7 @@ func parseMinAge(ageStr string) time.Duration {
 
 func displayVolumesList(result *volumes.AnalysisResult, options volumes.AnalysisOptions) {
 	totalVolumes := len(result.ReleasedPVs) + len(result.OrphanedPVCs) + len(result.BoundVolumes)
-	
+
 	if totalVolumes == 0 {
 		if options.AllNamespaces {
 			fmt.Println("No volumes found across cluster.")
@@ -319,11 +319,11 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		if pv.Spec.ClaimRef != nil {
 			namespace = pv.Spec.ClaimRef.Namespace
 		}
-		
+
 		if options.ShowDetailed {
 			// Released PVs don't have usage data
 			used, available, usagePercent := "-", "-", "-"
-			
+
 			fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
 				truncateString(pv.Name, 40),
 				formatStorageSize(pv.Spec.Capacity["storage"]),
@@ -347,11 +347,11 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 	for _, pvc := range result.OrphanedPVCs {
 		age := time.Since(pvc.CreationTimestamp.Time).Round(24 * time.Hour)
 		statusColor := getVolumeStatusColor("ORPHANED", options.UseColors)
-		
+
 		if options.ShowDetailed {
 			// Orphaned PVCs don't have usage data
 			used, available, usagePercent := "-", "-", "-"
-			
+
 			fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
 				truncateString(pvc.Name, 40),
 				formatStorageSize(pvc.Spec.Resources.Requests["storage"]),
@@ -375,11 +375,11 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 	if options.ShowAll || (!options.ShowReleased && !options.ShowOrphaned) {
 		for _, volume := range result.BoundVolumes {
 			statusColor := getVolumeStatusColor("BOUND", options.UseColors)
-			
+
 			if options.ShowDetailed {
 				// Get usage information for bound volumes
 				used, available, usagePercent := formatUsageInfo(volume.Usage)
-				
+
 				fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
 					truncateString(volume.PVC.Name, 40),
 					formatStorageSize(volume.PVC.Spec.Resources.Requests["storage"]),
@@ -404,15 +404,15 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 	releasedCount := len(result.ReleasedPVs)
 	orphanedCount := len(result.OrphanedPVCs)
 	boundCount := len(result.BoundVolumes)
-	
+
 	fmt.Printf("\nSummary: %d released PVs, %d orphaned PVCs", releasedCount, orphanedCount)
 	if options.ShowAll || (!options.ShowReleased && !options.ShowOrphaned) {
 		fmt.Printf(", %d bound volumes", boundCount)
 	}
 	fmt.Printf("\n")
-	
+
 	if result.TotalReclaimableStorage > 0 {
-		fmt.Printf("Total reclaimable storage: %s\n", 
+		fmt.Printf("Total reclaimable storage: %s\n",
 			formatBytes(result.TotalReclaimableStorage))
 	}
 }
@@ -436,16 +436,16 @@ func displayCleanupResults(result *volumes.CleanupResult, options volumes.Cleanu
 func displayDiscoverySummary(result *volumes.AnalysisResult) {
 	fmt.Printf("Volume Discovery Summary\n")
 	fmt.Printf("========================\n\n")
-	
+
 	fmt.Printf("Total Persistent Volumes: %d\n", result.TotalPVs)
 	fmt.Printf("Total Persistent Volume Claims: %d\n", result.TotalPVCs)
 	fmt.Printf("Released PVs (reclaimable): %d\n", len(result.ReleasedPVs))
 	fmt.Printf("Orphaned PVCs: %d\n", len(result.OrphanedPVCs))
-	
+
 	if result.TotalReclaimableStorage > 0 {
 		fmt.Printf("Total reclaimable storage: %s\n", formatBytes(result.TotalReclaimableStorage))
 	}
-	
+
 	fmt.Printf("\nNamespaces with orphaned volumes: %d\n", len(result.NamespaceStats))
 }
 
@@ -494,7 +494,7 @@ func formatStorageSize(quantity interface{}) string {
 		bytes := q.Value()
 		return formatBytes(bytes)
 	}
-	
+
 	// Handle string representation
 	if qStr, ok := quantity.(string); ok {
 		if parsed, err := resource.ParseQuantity(qStr); err == nil {
@@ -502,7 +502,7 @@ func formatStorageSize(quantity interface{}) string {
 		}
 		return qStr
 	}
-	
+
 	// Fallback for unknown types
 	return fmt.Sprintf("%v", quantity)
 }
@@ -512,11 +512,10 @@ func formatUsageInfo(usage *volumes.VolumeUsage) (string, string, string) {
 	if usage == nil {
 		return "-", "-", "-"
 	}
-	
+
 	used := formatBytes(usage.UsedBytes)
 	available := formatBytes(usage.AvailableBytes)
 	usagePercent := fmt.Sprintf("%.0f%%", usage.UsagePercent)
-	
+
 	return used, available, usagePercent
 }
-

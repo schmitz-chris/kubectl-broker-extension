@@ -33,30 +33,30 @@ type CleanupOptions struct {
 
 // VolumeInfo represents a volume with analysis metadata
 type VolumeInfo struct {
-	PV                *v1.PersistentVolume
-	PVC               *v1.PersistentVolumeClaim
-	Type              VolumeType
-	Status            VolumeStatus
-	Size              resource.Quantity
-	Age               time.Duration
-	Namespace         string
-	AssociatedPods    []string
-	IsHiveMQVolume    bool
-	ReclaimPolicy     v1.PersistentVolumeReclaimPolicy
-	StorageClass      string
+	PV             *v1.PersistentVolume
+	PVC            *v1.PersistentVolumeClaim
+	Type           VolumeType
+	Status         VolumeStatus
+	Size           resource.Quantity
+	Age            time.Duration
+	Namespace      string
+	AssociatedPods []string
+	IsHiveMQVolume bool
+	ReclaimPolicy  v1.PersistentVolumeReclaimPolicy
+	StorageClass   string
 	// Volume usage information
-	Usage             *VolumeUsage
+	Usage *VolumeUsage
 }
 
 // VolumeType represents the type of volume issue
 type VolumeType int
 
 const (
-	VolumeTypeUnknown VolumeType = iota
-	VolumeTypeReleasedPV     // PV with status=Released
-	VolumeTypeOrphanedPVC    // PVC without associated pods
-	VolumeTypeUnboundPVC     // PVC in pending state
-	VolumeTypeBound          // Normal bound volume
+	VolumeTypeUnknown     VolumeType = iota
+	VolumeTypeReleasedPV             // PV with status=Released
+	VolumeTypeOrphanedPVC            // PVC without associated pods
+	VolumeTypeUnboundPVC             // PVC in pending state
+	VolumeTypeBound                  // Normal bound volume
 )
 
 func (vt VolumeType) String() string {
@@ -78,12 +78,12 @@ func (vt VolumeType) String() string {
 type VolumeStatus int
 
 const (
-	VolumeStatusUnknown VolumeStatus = iota
-	VolumeStatusReleased    // PV is released and can be deleted
-	VolumeStatusOrphaned    // PVC exists but no pods are using it
-	VolumeStatusUnbound     // PVC is pending binding
-	VolumeStatusBound       // PVC is bound and in use
-	VolumeStatusPending     // PVC is waiting for provisioning
+	VolumeStatusUnknown  VolumeStatus = iota
+	VolumeStatusReleased              // PV is released and can be deleted
+	VolumeStatusOrphaned              // PVC exists but no pods are using it
+	VolumeStatusUnbound               // PVC is pending binding
+	VolumeStatusBound                 // PVC is bound and in use
+	VolumeStatusPending               // PVC is waiting for provisioning
 )
 
 func (vs VolumeStatus) String() string {
@@ -105,7 +105,7 @@ func (vs VolumeStatus) String() string {
 
 // AnalysisResult contains the results of volume analysis
 type AnalysisResult struct {
-	ReleasedPVs              []*v1.PersistentVolume
+	ReleasedPVs             []*v1.PersistentVolume
 	OrphanedPVCs            []*v1.PersistentVolumeClaim
 	UnboundPVCs             []*v1.PersistentVolumeClaim
 	BoundVolumes            []VolumeInfo
@@ -119,22 +119,22 @@ type AnalysisResult struct {
 
 // NamespaceVolumeStats contains volume statistics for a namespace
 type NamespaceVolumeStats struct {
-	Namespace          string
-	ReleasedPVs        int
-	OrphanedPVCs       int
-	TotalReclaimable   int64
-	HiveMQVolumes      int
-	IsHiveMQNamespace  bool
-	NamespaceExists    bool
+	Namespace         string
+	ReleasedPVs       int
+	OrphanedPVCs      int
+	TotalReclaimable  int64
+	HiveMQVolumes     int
+	IsHiveMQNamespace bool
+	NamespaceExists   bool
 }
 
 // CleanupResult contains the results of volume cleanup operation
 type CleanupResult struct {
-	DeletedPVs              []string
-	DeletedPVCs             []string
-	FailedDeletions         []CleanupError
-	TotalReclaimedStorage   int64
-	DryRunPreview           []CleanupAction
+	DeletedPVs            []string
+	DeletedPVCs           []string
+	FailedDeletions       []CleanupError
+	TotalReclaimedStorage int64
+	DryRunPreview         []CleanupAction
 }
 
 // CleanupAction represents an action that would be taken during cleanup
@@ -169,20 +169,20 @@ func IsHiveMQVolume(name, namespace string) bool {
 	if len(name) >= len(HiveMQPVCPattern) && name[:len(HiveMQPVCPattern)] == HiveMQPVCPattern {
 		return true
 	}
-	
+
 	// Check for UUID-style namespace (HiveMQ Cloud pattern)
 	if isUUIDNamespace(namespace) {
 		return true
 	}
-	
+
 	return false
 }
 
 // isUUIDNamespace checks if namespace follows UUID pattern (HiveMQ Cloud)
 func isUUIDNamespace(namespace string) bool {
 	// HiveMQ Cloud uses UUID namespaces like: 07379b05-4e05-46bf-b5d3-b4441252a8d1
-	if len(namespace) == 36 && namespace[8] == '-' && namespace[13] == '-' && 
-	   namespace[18] == '-' && namespace[23] == '-' {
+	if len(namespace) == 36 && namespace[8] == '-' && namespace[13] == '-' &&
+		namespace[18] == '-' && namespace[23] == '-' {
 		return true
 	}
 	return false
@@ -194,12 +194,12 @@ func ShouldDeleteVolume(info VolumeInfo, options CleanupOptions) bool {
 	if info.Type != VolumeTypeReleasedPV && info.Type != VolumeTypeOrphanedPVC {
 		return false
 	}
-	
+
 	// Check minimum age requirement
 	if options.MinAge > 0 && info.Age < options.MinAge {
 		return false
 	}
-	
+
 	// Check minimum size requirement
 	if options.MinSize != "" {
 		minSize, err := resource.ParseQuantity(options.MinSize)
@@ -207,6 +207,6 @@ func ShouldDeleteVolume(info VolumeInfo, options CleanupOptions) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }

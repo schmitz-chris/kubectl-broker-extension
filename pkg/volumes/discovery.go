@@ -7,8 +7,8 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubectl-broker/pkg"
 )
 
@@ -134,7 +134,7 @@ func (a *Analyzer) analyzeNamespace(ctx context.Context, namespace string, optio
 	}
 
 	namespaceMap := map[string]bool{namespace: true}
-	
+
 	// Analyze PVs that were bound to PVCs in this namespace
 	for _, pv := range allPVs {
 		if pv.Spec.ClaimRef != nil && pv.Spec.ClaimRef.Namespace == namespace {
@@ -188,7 +188,7 @@ func (a *Analyzer) analyzePersistentVolume(ctx context.Context, pv *v1.Persisten
 // analyzePersistentVolumeClaim analyzes a single persistent volume claim
 func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.PersistentVolumeClaim, options AnalysisOptions, result *AnalysisResult, volumeUsageMap map[string]*VolumeUsage) error {
 	age := time.Since(pvc.CreationTimestamp.Time)
-	
+
 	// Check if PVC is bound - if not bound, it might be orphaned
 	if pvc.Status.Phase != v1.ClaimBound {
 		// Check age requirements
@@ -197,7 +197,7 @@ func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.Per
 		}
 
 		result.OrphanedPVCs = append(result.OrphanedPVCs, pvc)
-		
+
 		// Add storage to reclaimable total
 		if storage, ok := pvc.Spec.Resources.Requests[v1.ResourceStorage]; ok {
 			result.TotalReclaimableStorage += storage.Value()
@@ -219,7 +219,7 @@ func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.Per
 		}
 
 		result.OrphanedPVCs = append(result.OrphanedPVCs, pvc)
-		
+
 		// Add storage to reclaimable total
 		if storage, ok := pvc.Spec.Resources.Requests[v1.ResourceStorage]; ok {
 			result.TotalReclaimableStorage += storage.Value()
@@ -250,7 +250,7 @@ func (a *Analyzer) analyzePersistentVolumeClaim(ctx context.Context, pvc *v1.Per
 
 		// Try to find associated pods
 		volumeInfo.AssociatedPods, _ = a.findPodsUsingPVC(ctx, pvc)
-		
+
 		result.BoundVolumes = append(result.BoundVolumes, volumeInfo)
 	}
 
@@ -269,8 +269,8 @@ func (a *Analyzer) isPVCOrphaned(ctx context.Context, pvc *v1.PersistentVolumeCl
 	for _, pod := range podList.Items {
 		// Check all volumes in the pod
 		for _, volume := range pod.Spec.Volumes {
-			if volume.PersistentVolumeClaim != nil && 
-			   volume.PersistentVolumeClaim.ClaimName == pvc.Name {
+			if volume.PersistentVolumeClaim != nil &&
+				volume.PersistentVolumeClaim.ClaimName == pvc.Name {
 				return false, nil // PVC is being used
 			}
 		}
@@ -458,8 +458,8 @@ func (a *Analyzer) findPodsUsingPVC(ctx context.Context, pvc *v1.PersistentVolum
 	var podNames []string
 	for _, pod := range podList.Items {
 		for _, volume := range pod.Spec.Volumes {
-			if volume.PersistentVolumeClaim != nil && 
-			   volume.PersistentVolumeClaim.ClaimName == pvc.Name {
+			if volume.PersistentVolumeClaim != nil &&
+				volume.PersistentVolumeClaim.ClaimName == pvc.Name {
 				podNames = append(podNames, pod.Name)
 				break
 			}
