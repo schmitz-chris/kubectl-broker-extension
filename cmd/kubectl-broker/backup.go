@@ -34,6 +34,10 @@ var (
 	// Status command flags
 	statusBackupID string
 	statusLatest   bool
+	
+	// Restore command flags
+	restoreBackupID string
+	restoreLatest   bool
 )
 
 func newBackupCommand() *cobra.Command {
@@ -58,7 +62,13 @@ Examples:
   kubectl broker backup download --latest
 
   # Check backup status
-  kubectl broker backup status --id abc123`,
+  kubectl broker backup status --id abc123
+  
+  # Restore from a specific backup
+  kubectl broker backup restore --id abc123
+  
+  # Restore from the latest backup
+  kubectl broker backup restore --latest`,
 	}
 
 	// Add persistent flags for all subcommands
@@ -72,6 +82,7 @@ Examples:
 	backupCmd.AddCommand(newBackupListCommand())
 	backupCmd.AddCommand(newBackupDownloadCommand())
 	backupCmd.AddCommand(newBackupStatusCommand())
+	backupCmd.AddCommand(newBackupRestoreCommand())
 	backupCmd.AddCommand(newBackupTestCommand())
 
 	return backupCmd
@@ -138,6 +149,24 @@ progress (if in progress), size, and creation time.`,
 	statusCmd.Flags().BoolVar(&statusLatest, "latest", false, "Check status of the latest backup")
 
 	return statusCmd
+}
+
+func newBackupRestoreCommand() *cobra.Command {
+	var restoreCmd = &cobra.Command{
+		Use:   "restore",
+		Short: "Restore from a backup",
+		Long: `Restore the HiveMQ broker cluster from a backup. This operation will:
+1. Connect to the broker's management API
+2. Initiate a restore operation from the specified backup
+3. Monitor progress until completion
+4. Display the final restore status`,
+		RunE: runBackupRestore,
+	}
+
+	restoreCmd.Flags().StringVar(&restoreBackupID, "id", "", "Backup ID to restore from")
+	restoreCmd.Flags().BoolVar(&restoreLatest, "latest", false, "Restore from the latest backup")
+
+	return restoreCmd
 }
 
 func newBackupTestCommand() *cobra.Command {
@@ -405,6 +434,54 @@ func runBackupStatus(cmd *cobra.Command, args []string) error {
 
 	if status.Message != "" {
 		fmt.Printf("Message: %s\n", status.Message)
+	}
+
+	return nil
+}
+
+func runBackupRestore(cmd *cobra.Command, args []string) error {
+	if err := applyBackupDefaults(); err != nil {
+		return err
+	}
+
+	if restoreBackupID == "" && !restoreLatest {
+		return fmt.Errorf("either --id or --latest must be specified")
+	}
+
+	fmt.Printf("Restoring backup for StatefulSet %s in namespace %s\n", backupStatefulSetName, backupNamespace)
+
+	// Initialize Kubernetes client
+	k8sClient, err := pkg.NewK8sClient(false)
+	if err != nil {
+		return pkg.EnhanceError(err, "failed to initialize Kubernetes client")
+	}
+
+	// Get the API service from the StatefulSet
+	service, err := k8sClient.GetAPIServiceFromStatefulSet(context.Background(), backupNamespace, backupStatefulSetName)
+	if err != nil {
+		return pkg.EnhanceError(err, fmt.Sprintf("StatefulSet %s in namespace %s", backupStatefulSetName, backupNamespace))
+	}
+
+	// Set up backup options
+	options := backup.BackupOptions{
+		Username:     backupUsername,
+		Password:     backupPassword,
+		Timeout:      5 * time.Minute,
+		PollInterval: 2 * time.Second,
+		ShowProgress: true,
+	}
+
+	// Handle latest backup selection
+	backupID := restoreBackupID
+	if restoreLatest {
+		backupID = "latest" // Special ID handled by RestoreBackup
+		fmt.Printf("Restoring from latest backup\n")
+	}
+
+	// Restore backup
+	err = backup.RestoreBackup(context.Background(), k8sClient, service, backupID, options)
+	if err != nil {
+		return fmt.Errorf("restore failed: %w", err)
 	}
 
 	return nil

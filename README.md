@@ -15,7 +15,8 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 - **Intelligent Defaults**: Automatically uses StatefulSet "broker" and current kubectl context namespace
 
 ### Backup Management
-- **Backup Operations**: Create, list, download, and monitor backup status
+- **Backup Operations**: Create, list, download, restore, and monitor backup status
+- **Live Restore**: Safe restoration to running clusters with automatic conflict resolution (HiveMQ 4.9.0+)
 - **Backup Directory Management**: Automatic backup directory moving within pod filesystem
 - **Progress Monitoring**: Real-time status polling with progress indicators
 - **Authentication Support**: Username/password authentication for secured HiveMQ instances
@@ -133,8 +134,15 @@ kubectl broker backup download --latest --output-dir ./backups
 kubectl broker backup status --id abc123
 kubectl broker backup status --latest
 
+# Restore from specific backup
+kubectl broker backup restore --id abc123
+
+# Restore from latest backup  
+kubectl broker backup restore --latest
+
 # With authentication (for secured HiveMQ instances)
 kubectl broker backup create --username admin --password secret
+kubectl broker backup restore --id abc123 --username admin --password secret
 
 # Move backup to different directory within pod
 kubectl broker backup create --destination /opt/hivemq/data/backup
@@ -316,6 +324,25 @@ File: ./backups/hivemq-backup-20250819-143025.zip
 Size: 1.2 MB
 ```
 
+#### Restore Backup
+```bash
+kubectl broker backup restore --id 20250819-143025 --statefulset broker --namespace production
+```
+Output:
+```
+Restoring backup for StatefulSet broker in namespace production
+Using backup: 20250819-143025
+Restoring from backup 20250819-143025 for service hivemq-broker-api
+Restore operation initiated: restore-abc123
+Waiting for completion.... done
+
+Restore ID: restore-abc123
+Backup ID: 20250819-143025
+Status: RESTORE_COMPLETED
+```
+
+**Important:** Restore can be performed on running clusters (HiveMQ 4.9.0+). HiveMQ automatically resolves data conflicts during live restore operations.
+
 ### Volume Management Examples
 
 #### List Volumes (Fast Mode)
@@ -434,6 +461,16 @@ Namespaces with orphaned volumes: 3
 | `--id`            | Specific backup ID to download                  | Optional*** | `--id 20250819-143025`               |
 | `--latest`        | Download latest backup                          | Optional*** | `--latest`                           |
 | `--output-dir`    | Local directory to save backup file            | Yes        | `--output-dir ./backups`              |
+| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
+| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
+| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
+| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
+
+#### Restore Backup
+| Flag              | Description                                     | Required   | Example                               |
+|-------------------|-------------------------------------------------|------------|---------------------------------------|
+| `--id`            | Specific backup ID to restore from             | Optional*** | `--id 20250819-143025`               |
+| `--latest`        | Restore from latest backup                      | Optional*** | `--latest`                           |
 | `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
 | `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
 | `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |

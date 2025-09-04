@@ -272,6 +272,92 @@ func GetBackupStatus(ctx context.Context, k8sClient *pkg.K8sClient, service *v1.
 	return status, nil
 }
 
+// RestoreBackup performs a restore operation using the API service with progress feedback
+func RestoreBackup(ctx context.Context, k8sClient *pkg.K8sClient, service *v1.Service, backupID string, options BackupOptions) error {
+	// Handle "latest" backup ID
+	if backupID == "latest" {
+		backups, err := ListBackups(ctx, k8sClient, service, options)
+		if err != nil {
+			return fmt.Errorf("failed to list backups to find latest: %w", err)
+		}
+		if len(backups) == 0 {
+			return fmt.Errorf("no backups found")
+		}
+		backupID = backups[0].ID // Already sorted newest first
+		fmt.Printf("Using latest backup: %s\n", backupID)
+	}
+
+	fmt.Printf("Restoring from backup %s for service %s\n", backupID, service.Name)
+
+	// Discover the API port for the service
+	apiPort, err := k8sClient.DiscoverServiceAPIPort(service)
+	if err != nil {
+		return fmt.Errorf("failed to discover API port: %w", err)
+	}
+
+	// Get a random local port for port-forwarding
+	localPort, err := pkg.GetRandomPort()
+	if err != nil {
+		return fmt.Errorf("failed to get random port: %w", err)
+	}
+
+	// Set up port forwarding
+	pf := pkg.NewPortForwarder(k8sClient.GetConfig(), k8sClient.GetRESTClient())
+
+	// Create base URL for the backup API
+	baseURL := fmt.Sprintf("http://localhost:%d", localPort)
+	client := NewClient(baseURL, options.Username, options.Password)
+	client.SetTimeout(options.Timeout)
+
+	// Use service port forwarding for restore operations
+	err = pf.PerformWithServicePortForwarding(ctx, k8sClient, service, apiPort, localPort, func(localPort int) error {
+		// Test connection first
+		if err := client.TestConnection(); err != nil {
+			return fmt.Errorf("management API connection failed: %w", err)
+		}
+
+		// Initiate restore
+		restoreResp, err := client.RestoreBackup(backupID)
+		if err != nil {
+			return fmt.Errorf("failed to initiate restore: %w", err)
+		}
+
+		if options.ShowProgress {
+			fmt.Printf("Restore operation initiated: %s\n", restoreResp.ID)
+			fmt.Printf("Waiting for completion...")
+		}
+
+		// Poll for completion
+		if err := waitForRestoreCompletion(client, backupID, options); err != nil {
+			return err
+		}
+
+		// Get final restore status
+		status, err := client.GetBackupStatus(backupID)
+		if err != nil {
+			return fmt.Errorf("failed to get final restore status: %w", err)
+		}
+
+		// Display results
+		statusColor := getStatusColor(status.Status)
+		fmt.Printf("\nRestore ID: %s\n", restoreResp.ID)
+		fmt.Printf("Backup ID: %s\n", backupID)
+		fmt.Printf("Status: %s\n", statusColor.Sprint(string(status.Status)))
+		
+		if status.Message != "" {
+			fmt.Printf("Message: %s\n", status.Message)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // waitForBackupCompletion polls the backup status until completion
 func waitForBackupCompletion(client *Client, backupID string, options BackupOptions) error {
 	for {
@@ -297,6 +383,50 @@ func waitForBackupCompletion(client *Client, backupID string, options BackupOpti
 			} else {
 				return fmt.Errorf("backup failed with status: %s", status.Status)
 			}
+		}
+
+		time.Sleep(options.PollInterval)
+	}
+}
+
+// waitForRestoreCompletion polls the backup status until restore completion
+func waitForRestoreCompletion(client *Client, backupID string, options BackupOptions) error {
+	for {
+		status, err := client.GetBackupStatus(backupID)
+		if err != nil {
+			return fmt.Errorf("failed to check restore status: %w", err)
+		}
+
+		if options.ShowProgress {
+			if status.Progress > 0 {
+				fmt.Printf(" %d%%", status.Progress)
+			} else {
+				fmt.Printf(".")
+			}
+		}
+
+		// Check if restore operation is complete
+		if status.Status.IsTerminal() {
+			if status.Status.IsSuccess() {
+				if options.ShowProgress {
+					fmt.Printf(" done")
+				}
+				return nil
+			} else {
+				return fmt.Errorf("restore failed with status: %s", status.Status)
+			}
+		}
+
+		// Check specifically for restore statuses
+		if status.Status == StatusRestoreCompleted {
+			if options.ShowProgress {
+				fmt.Printf(" done")
+			}
+			return nil
+		}
+		
+		if status.Status == StatusRestoreFailed {
+			return fmt.Errorf("restore failed")
 		}
 
 		time.Sleep(options.PollInterval)
