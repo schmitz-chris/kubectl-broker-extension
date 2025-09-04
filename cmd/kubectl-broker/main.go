@@ -22,6 +22,7 @@ backup operations, and other cluster management features.`,
 	// Add subcommands
 	rootCmd.AddCommand(newStatusCommand())
 	rootCmd.AddCommand(newBackupCommand())
+	rootCmd.AddCommand(newVolumesCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)

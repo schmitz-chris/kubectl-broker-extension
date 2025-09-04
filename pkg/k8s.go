@@ -198,6 +198,16 @@ func (k *K8sClient) GetRESTClient() rest.Interface {
 	return k.restClient
 }
 
+// GetCoreClient returns the CoreV1 client for direct API access
+func (k *K8sClient) GetCoreClient() *corev1client.CoreV1Client {
+	return k.coreClient
+}
+
+// GetAppsClient returns the AppsV1 client for direct API access
+func (k *K8sClient) GetAppsClient() *appsv1client.AppsV1Client {
+	return k.appsClient
+}
+
 // GetStatefulSet retrieves a StatefulSet by name and namespace
 func (k *K8sClient) GetStatefulSet(ctx context.Context, namespace, name string) (*appsv1.StatefulSet, error) {
 	sts, err := k.appsClient.StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})

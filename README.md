@@ -16,7 +16,7 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 
 ### Backup Management
 - **Backup Operations**: Create, list, download, and monitor backup status
-- **Backup Directory Management**: Automatic backup directory moving within pod filesystem
+- **Backup Directory Management**: Automatic backup directory moving within pod filesystemclear
 - **Progress Monitoring**: Real-time status polling with progress indicators
 - **Authentication Support**: Username/password authentication for secured HiveMQ instances
 - **File Download**: Automatic backup download with progress bars
