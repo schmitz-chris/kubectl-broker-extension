@@ -24,6 +24,7 @@ var (
 	volumesShowReleased bool
 	volumesShowOrphaned bool
 	volumesShowAll     bool
+	volumesShowDetailed bool
 )
 
 func newVolumesCommand() *cobra.Command {
@@ -88,6 +89,7 @@ By default, shows volumes in the current kubectl context namespace.`,
 	listCmd.Flags().BoolVar(&volumesShowReleased, "released", false, "Show only released persistent volumes")
 	listCmd.Flags().BoolVar(&volumesShowOrphaned, "orphaned", false, "Show only orphaned volumes (PVCs without pods)")
 	listCmd.Flags().BoolVar(&volumesShowAll, "all", false, "Show all volumes including bound ones")
+	listCmd.Flags().BoolVar(&volumesShowDetailed, "detailed", false, "Show detailed usage information (slower, queries Node Stats API)")
 
 	return listCmd
 }
@@ -164,6 +166,7 @@ func runVolumesList(cmd *cobra.Command, args []string) error {
 		ShowReleased:   volumesShowReleased,
 		ShowOrphaned:   volumesShowOrphaned,
 		ShowAll:        volumesShowAll,
+		ShowDetailed:   volumesShowDetailed,
 		UseColors:      true,
 	}
 
@@ -299,9 +302,14 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		return
 	}
 
-	// Display header
-	fmt.Printf("VOLUME NAME                               SIZE     USED     AVAIL    USAGE%%  AGE      STATUS       NAMESPACE\n")
-	fmt.Printf("----------------------------------------  -------  -------  -------  ------  -------  -----------  ---------\n")
+	// Display header - different format based on detailed mode
+	if options.ShowDetailed {
+		fmt.Printf("VOLUME NAME                               SIZE     USED     AVAIL    USAGE%%  AGE      STATUS       NAMESPACE\n")
+		fmt.Printf("----------------------------------------  -------  -------  -------  ------  -------  -----------  ---------\n")
+	} else {
+		fmt.Printf("VOLUME NAME                               SIZE     AGE      STATUS       NAMESPACE\n")
+		fmt.Printf("----------------------------------------  -------  -------  -----------  ---------\n")
+	}
 
 	// Display released PVs
 	for _, pv := range result.ReleasedPVs {
@@ -312,18 +320,27 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 			namespace = pv.Spec.ClaimRef.Namespace
 		}
 		
-		// Released PVs don't have usage data
-		used, available, usagePercent := "-", "-", "-"
-		
-		fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
-			truncateString(pv.Name, 40),
-			formatStorageSize(pv.Spec.Capacity["storage"]),
-			used,
-			available,
-			usagePercent,
-			formatDuration(age),
-			statusColor.Sprint("RELEASED"),
-			namespace)
+		if options.ShowDetailed {
+			// Released PVs don't have usage data
+			used, available, usagePercent := "-", "-", "-"
+			
+			fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
+				truncateString(pv.Name, 40),
+				formatStorageSize(pv.Spec.Capacity["storage"]),
+				used,
+				available,
+				usagePercent,
+				formatDuration(age),
+				statusColor.Sprint("RELEASED"),
+				namespace)
+		} else {
+			fmt.Printf("%-40s  %-7s  %-7s  %s  %s\n",
+				truncateString(pv.Name, 40),
+				formatStorageSize(pv.Spec.Capacity["storage"]),
+				formatDuration(age),
+				statusColor.Sprint("RELEASED"),
+				namespace)
+		}
 	}
 
 	// Display orphaned PVCs
@@ -331,18 +348,27 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		age := time.Since(pvc.CreationTimestamp.Time).Round(24 * time.Hour)
 		statusColor := getVolumeStatusColor("ORPHANED", options.UseColors)
 		
-		// Orphaned PVCs don't have usage data
-		used, available, usagePercent := "-", "-", "-"
-		
-		fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
-			truncateString(pvc.Name, 40),
-			formatStorageSize(pvc.Spec.Resources.Requests["storage"]),
-			used,
-			available,
-			usagePercent,
-			formatDuration(age),
-			statusColor.Sprint("ORPHANED"),
-			pvc.Namespace)
+		if options.ShowDetailed {
+			// Orphaned PVCs don't have usage data
+			used, available, usagePercent := "-", "-", "-"
+			
+			fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
+				truncateString(pvc.Name, 40),
+				formatStorageSize(pvc.Spec.Resources.Requests["storage"]),
+				used,
+				available,
+				usagePercent,
+				formatDuration(age),
+				statusColor.Sprint("ORPHANED"),
+				pvc.Namespace)
+		} else {
+			fmt.Printf("%-40s  %-7s  %-7s  %s  %s\n",
+				truncateString(pvc.Name, 40),
+				formatStorageSize(pvc.Spec.Resources.Requests["storage"]),
+				formatDuration(age),
+				statusColor.Sprint("ORPHANED"),
+				pvc.Namespace)
+		}
 	}
 
 	// Display bound volumes (only if --all flag is used or no specific filter)
@@ -350,18 +376,27 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		for _, volume := range result.BoundVolumes {
 			statusColor := getVolumeStatusColor("BOUND", options.UseColors)
 			
-			// Get usage information for bound volumes
-			used, available, usagePercent := formatUsageInfo(volume.Usage)
-			
-			fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
-				truncateString(volume.PVC.Name, 40),
-				formatStorageSize(volume.PVC.Spec.Resources.Requests["storage"]),
-				used,
-				available,
-				usagePercent,
-				formatDuration(volume.Age),
-				statusColor.Sprint("BOUND"),
-				volume.Namespace)
+			if options.ShowDetailed {
+				// Get usage information for bound volumes
+				used, available, usagePercent := formatUsageInfo(volume.Usage)
+				
+				fmt.Printf("%-40s  %-7s  %-7s  %-7s  %-6s  %-7s  %s  %s\n",
+					truncateString(volume.PVC.Name, 40),
+					formatStorageSize(volume.PVC.Spec.Resources.Requests["storage"]),
+					used,
+					available,
+					usagePercent,
+					formatDuration(volume.Age),
+					statusColor.Sprint("BOUND"),
+					volume.Namespace)
+			} else {
+				fmt.Printf("%-40s  %-7s  %-7s  %s  %s\n",
+					truncateString(volume.PVC.Name, 40),
+					formatStorageSize(volume.PVC.Spec.Resources.Requests["storage"]),
+					formatDuration(volume.Age),
+					statusColor.Sprint("BOUND"),
+					volume.Namespace)
+			}
 		}
 	}
 

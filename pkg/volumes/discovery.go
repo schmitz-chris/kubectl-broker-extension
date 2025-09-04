@@ -30,8 +30,11 @@ func (a *Analyzer) AnalyzeVolumes(ctx context.Context, options AnalysisOptions) 
 		NamespaceStats: make(map[string]*NamespaceVolumeStats),
 	}
 
-	// Initialize usage collector for getting volume usage statistics
-	usageCollector := NewVolumeUsageCollector(a.k8sClient)
+	// Initialize usage collector only if detailed mode is enabled
+	var usageCollector *VolumeUsageCollector
+	if options.ShowDetailed {
+		usageCollector = NewVolumeUsageCollector(a.k8sClient)
+	}
 
 	if options.AllNamespaces {
 		return a.analyzeClusterWide(ctx, options, result, usageCollector)

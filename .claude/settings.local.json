@@ -78,7 +78,8 @@
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker backup status --id 20250806-082949 --namespace 9141c41b-686e-42d8-8524-9876229d41ce)",
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker status --namespace 9141c41b-686e-42d8-8524-9876229d41ce --pod broker-0 --json)",
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker status --namespace 9141c41b-686e-42d8-8524-9876229d41ce --pod broker-0 --detailed)",
-      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker status --namespace 9141c41b-686e-42d8-8524-9876229d41ce --json)"
+      "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker status --namespace 9141c41b-686e-42d8-8524-9876229d41ce --json)",
+      "Bash(timeout 15s ./kubectl-broker volumes list --all-namespaces)"
     ],
     "deny": []
   }

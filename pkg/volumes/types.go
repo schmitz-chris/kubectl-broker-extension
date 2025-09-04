@@ -16,6 +16,7 @@ type AnalysisOptions struct {
 	ShowReleased  bool          // Show only released PVs
 	ShowOrphaned  bool          // Show only orphaned PVCs
 	ShowAll       bool          // Show all volumes including bound ones
+	ShowDetailed  bool          // Show detailed usage information (enables Node Stats API)
 	UseColors     bool          // Use color output
 }
 

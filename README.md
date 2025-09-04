@@ -143,8 +143,11 @@ kubectl broker backup create --destination /opt/hivemq/data/backup
 ### Volume Management (`volumes` subcommand)
 
 ```bash
-# List volumes in current namespace
+# List volumes in current namespace (fast, basic info)
 kubectl broker volumes list
+
+# List volumes with detailed usage information (slower, shows disk usage)
+kubectl broker volumes list --detailed
 
 # List only orphaned volumes (PVCs without pods)
 kubectl broker volumes list --orphaned
@@ -157,6 +160,9 @@ kubectl broker volumes list --all
 
 # Cluster-wide volume listing
 kubectl broker volumes list --all-namespaces
+
+# Cluster-wide detailed listing with usage data
+kubectl broker volumes list --all-namespaces --detailed
 
 # Preview cleanup (dry-run)
 kubectl broker volumes cleanup --dry-run
@@ -312,9 +318,9 @@ Size: 1.2 MB
 
 ### Volume Management Examples
 
-#### List Volumes
+#### List Volumes (Fast Mode)
 ```bash
-kubectl broker volumes list --orphaned
+kubectl broker volumes list
 ```
 Output:
 ```
@@ -322,12 +328,26 @@ Using namespace: production-hivemq (from kubeconfig context)
 
 VOLUME NAME                               SIZE     AGE      STATUS       NAMESPACE
 ----------------------------------------  -------  -------  -----------  ---------
-data-broker-0                            10Gi     7d       ORPHANED     production-hivemq
-data-broker-1                            10Gi     7d       ORPHANED     production-hivemq
-backup-storage-broker-2                  5Gi      3d       ORPHANED     production-hivemq
+data-broker-0                            100Gi    14d      BOUND        production-hivemq
+data-broker-1                            100Gi    3d       BOUND        production-hivemq
 
-Summary: 0 released PVs, 3 orphaned PVCs
-Total reclaimable storage: 25Gi
+Summary: 0 released PVs, 0 orphaned PVCs, 2 bound volumes
+```
+
+#### List Volumes (Detailed Mode with Usage)
+```bash
+kubectl broker volumes list --detailed
+```
+Output:
+```
+Using namespace: production-hivemq (from kubeconfig context)
+
+VOLUME NAME                               SIZE     USED     AVAIL    USAGE%  AGE      STATUS       NAMESPACE
+----------------------------------------  -------  -------  -------  ------  -------  -----------  ---------
+data-broker-0                            100Gi    56.5MB   97.8GB   0%      14d      BOUND        production-hivemq
+data-broker-1                            100Gi    44.1MB   97.8GB   0%      3d       BOUND        production-hivemq
+
+Summary: 0 released PVs, 0 orphaned PVCs, 2 bound volumes
 ```
 
 #### Volume Cleanup (Dry Run)
@@ -436,6 +456,7 @@ Namespaces with orphaned volumes: 3
 |--------------------|------------------------------------------------|------------|---------------------------------------|
 | `--namespace, -n`  | Kubernetes namespace                           | Optional** | `--namespace production`              |
 | `--all-namespaces` | List volumes across all namespaces            | No         | `--all-namespaces`                    |
+| `--detailed`       | Show detailed usage information (slower)       | No         | `--detailed`                          |
 | `--older-than`     | Show volumes older than specified duration     | No         | `--older-than 30d`                    |
 | `--min-size`       | Show volumes larger than specified size        | No         | `--min-size 1Gi`                      |
 | `--released`       | Show only released persistent volumes          | No         | `--released`                          |
