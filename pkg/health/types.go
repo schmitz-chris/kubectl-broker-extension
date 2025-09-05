@@ -149,7 +149,7 @@ func (cs *ComponentStatus) Validate() error {
 
 	// Validate name
 	if strings.TrimSpace(cs.Name) == "" {
-		return fmt.Errorf("Name cannot be empty")
+		return fmt.Errorf("name cannot be empty")
 	}
 
 	// Validate status

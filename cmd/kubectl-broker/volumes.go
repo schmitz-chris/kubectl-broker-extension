@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"kubectl-broker/pkg"
+	"kubectl-broker/pkg/volumes"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubectl-broker/pkg"
-	"kubectl-broker/pkg/volumes"
 )
 
 var (

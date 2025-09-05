@@ -16,31 +16,31 @@ import (
 
 // KubernetesClient defines the interface for Kubernetes operations
 type KubernetesClient interface {
-	// Pod operations
+	// GetPod GetPod Pod operations
 	GetPod(ctx context.Context, namespace, name string) (*v1.Pod, error)
 	GetPodsFromStatefulSet(ctx context.Context, namespace, statefulSetName string) ([]*v1.Pod, error)
 	GetStatefulSetPods(ctx context.Context, namespace, statefulSetName string) ([]v1.Pod, error)
 
-	// Port discovery
+	// DiscoverHealthPort DiscoverHealthPort Port discovery
 	DiscoverHealthPort(pod *v1.Pod) (int32, error)
 	DiscoverAPIPort(pod *v1.Pod) (int32, error)
 
-	// StatefulSet operations
+	// GetStatefulSet GetStatefulSet StatefulSet operations
 	GetStatefulSet(ctx context.Context, namespace, name string) (*appsv1.StatefulSet, error)
 
-	// Service operations
+	// GetAPIServiceFromStatefulSet GetAPIServiceFromStatefulSet Service operations
 	GetAPIServiceFromStatefulSet(ctx context.Context, namespace, statefulSetName string) (*v1.Service, error)
 	DiscoverServiceAPIPort(service *v1.Service) (int32, error)
 
-	// Health check operations
+	// PerformConcurrentHealthChecks Health check operations
 	PerformConcurrentHealthChecks(ctx context.Context, pods []*v1.Pod, port int32, options health.HealthCheckOptions) error
 	DiscoverBrokers(ctx context.Context) error
 
-	// Command execution
+	// ExecCommand Command execution
 	ExecCommand(ctx context.Context, namespace, podName string, command []string) (string, error)
 	ExecCommandStream(ctx context.Context, namespace, podName string, command []string) (io.ReadCloser, error)
 
-	// Client access
+	// GetConfig Client access
 	GetConfig() *rest.Config
 	GetRESTClient() rest.Interface
 	GetCoreClient() *corev1client.CoreV1Client
