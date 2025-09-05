@@ -17,6 +17,9 @@ import (
 	"kubectl-broker/pkg/health"
 )
 
+// Compile-time check to ensure PortForwarder implements PortForwardManager interface
+var _ PortForwardManager = (*PortForwarder)(nil)
+
 // PortForwarder manages port-forwarding to a Kubernetes pod
 type PortForwarder struct {
 	config     *rest.Config

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -21,6 +22,9 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/util/homedir"
 )
+
+// Compile-time check to ensure K8sClient implements KubernetesClient interface
+var _ KubernetesClient = (*K8sClient)(nil)
 
 // K8sClient wraps specific Kubernetes client interfaces with helper methods
 type K8sClient struct {
@@ -380,6 +384,34 @@ func GetRandomPort() (int, error) {
 
 	addr := listener.Addr().(*net.TCPAddr)
 	return addr.Port, nil
+}
+
+// GetRandomPortWithRetry attempts to get a random port with retry logic
+func GetRandomPortWithRetry(ctx context.Context, maxRetries int) (int, error) {
+	for i := 0; i < maxRetries; i++ {
+		select {
+		case <-ctx.Done():
+			return 0, NewNetworkError("get_random_port", "", ctx.Err())
+		default:
+		}
+
+		port, err := GetRandomPort()
+		if err == nil {
+			return port, nil
+		}
+
+		// If this is the last retry, return the error
+		if i == maxRetries-1 {
+			return 0, NewNetworkError("get_random_port", "", 
+				fmt.Errorf("failed to get random port after %d retries: %w", maxRetries, err))
+		}
+
+		// Wait a bit before retrying (exponential backoff could be added here)
+		time.Sleep(time.Millisecond * time.Duration(50*(i+1)))
+	}
+
+	return 0, NewNetworkError("get_random_port", "", 
+		fmt.Errorf("exhausted all %d retry attempts", maxRetries))
 }
 
 // GetStatefulSetPods retrieves all pods belonging to a StatefulSet (returns slice of Pod values, not pointers)

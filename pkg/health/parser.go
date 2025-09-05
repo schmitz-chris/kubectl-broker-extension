@@ -1,11 +1,34 @@
 package health
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
+)
+
+// Parser pools for memory optimization
+var (
+	bytesBufferPool = sync.Pool{
+		New: func() interface{} {
+			return &bytes.Buffer{}
+		},
+	}
+	
+	stringBuilderPool = sync.Pool{
+		New: func() interface{} {
+			return &strings.Builder{}
+		},
+	}
+	
+	parsedDataPool = sync.Pool{
+		New: func() interface{} {
+			return &ParsedHealthData{}
+		},
+	}
 )
 
 // ParseHealthResponse parses a HiveMQ health API JSON response
@@ -13,22 +36,35 @@ func ParseHealthResponse(jsonData []byte) (*ParsedHealthData, error) {
 	return ParseHealthResponseWithPodName(jsonData, "")
 }
 
-// ParseHealthResponseWithPodName parses a HiveMQ health API JSON response with pod name
+// ParseHealthResponseWithPodName parses a HiveMQ health API JSON response with pod name (optimized)
 func ParseHealthResponseWithPodName(jsonData []byte, podName string) (*ParsedHealthData, error) {
+	if len(jsonData) == 0 {
+		return nil, fmt.Errorf("empty JSON data provided")
+	}
+
 	var healthResp HealthResponse
 	if err := json.Unmarshal(jsonData, &healthResp); err != nil {
 		return nil, fmt.Errorf("failed to parse health response JSON: %w", err)
 	}
 
-	parsed := &ParsedHealthData{
-		PodName:       podName,
-		OverallStatus: healthResp.Status,
-		RawJSON:       jsonData,
-	}
+	// Get parsed data from pool and reset it
+	parsed := parsedDataPool.Get().(*ParsedHealthData)
+	resetParsedHealthData(parsed)
+	
+	// Set basic fields
+	parsed.PodName = podName
+	parsed.OverallStatus = healthResp.Status
+	parsed.RawJSON = make([]byte, len(jsonData)) // Create a copy to avoid retaining the original slice
+	copy(parsed.RawJSON, jsonData)
 
 	// Parse components if available
 	if healthResp.Components != nil {
 		parsed.ComponentCount = len(healthResp.Components)
+		
+		// Pre-allocate slice with known capacity for better performance
+		if parsed.ComponentDetails == nil {
+			parsed.ComponentDetails = make([]ComponentStatus, 0, len(healthResp.Components))
+		}
 
 		for name, component := range healthResp.Components {
 			componentStatus := ComponentStatus{
@@ -36,80 +72,149 @@ func ParseHealthResponseWithPodName(jsonData []byte, podName string) (*ParsedHea
 				Status: component.Status,
 			}
 
-			// Extract details as a formatted string
+			// Extract details as a formatted string using string builder for efficiency
 			if component.Details != nil {
-				details := make([]string, 0)
-				for key, value := range component.Details {
-					details = append(details, fmt.Sprintf("%s: %v", key, value))
-				}
-				componentStatus.Details = strings.Join(details, ", ")
+				componentStatus.Details = formatComponentDetails(component.Details)
 			}
 
 			// Special handling for extensions component - parse sub-components
 			if name == "extensions" {
-				componentStatus.SubComponents = parseExtensionsComponents(component)
+				componentStatus.SubComponents = parseExtensionsComponentsOptimized(component)
 			}
 
 			parsed.ComponentDetails = append(parsed.ComponentDetails, componentStatus)
 
-			// Count component health status
-			switch component.Status {
-			case StatusUP:
-				parsed.HealthyComponents++
-			case StatusDEGRADED:
-				parsed.DegradedComponents++
-			case StatusDOWN, StatusUNKNOWN, StatusOUTOFSERVICE:
-				parsed.UnhealthyComponents++
-			}
+			// Count component health status using method for consistency
+			incrementHealthCounter(parsed, component.Status)
 		}
 	}
 
 	return parsed, nil
 }
 
+// resetParsedHealthData resets a ParsedHealthData struct for reuse
+func resetParsedHealthData(parsed *ParsedHealthData) {
+	parsed.PodName = ""
+	parsed.OverallStatus = ""
+	parsed.ComponentCount = 0
+	parsed.HealthyComponents = 0
+	parsed.DegradedComponents = 0
+	parsed.UnhealthyComponents = 0
+	parsed.ComponentDetails = parsed.ComponentDetails[:0] // Reset slice but keep capacity
+	parsed.RawJSON = nil
+}
+
+// formatComponentDetails formats component details efficiently using string builder
+func formatComponentDetails(details map[string]interface{}) string {
+	if len(details) == 0 {
+		return ""
+	}
+
+	sb := stringBuilderPool.Get().(*strings.Builder)
+	defer stringBuilderPool.Put(sb)
+	sb.Reset()
+
+	first := true
+	for key, value := range details {
+		if !first {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(key)
+		sb.WriteString(": ")
+		sb.WriteString(fmt.Sprintf("%v", value))
+		first = false
+	}
+
+	return sb.String()
+}
+
+// incrementHealthCounter increments the appropriate health counter
+func incrementHealthCounter(parsed *ParsedHealthData, status HealthStatus) {
+	switch status {
+	case StatusUP:
+		parsed.HealthyComponents++
+	case StatusDEGRADED:
+		parsed.DegradedComponents++
+	case StatusDOWN, StatusUNKNOWN, StatusOUTOFSERVICE:
+		parsed.UnhealthyComponents++
+	}
+}
+
+// ReleaseParsedHealthData returns a ParsedHealthData to the pool for reuse
+func ReleaseParsedHealthData(parsed *ParsedHealthData) {
+	if parsed != nil {
+		resetParsedHealthData(parsed)
+		parsedDataPool.Put(parsed)
+	}
+}
+
 // parseExtensionsComponents parses the extensions component to extract individual extension details
 func parseExtensionsComponents(extensionsComponent ComponentHealth) []ComponentStatus {
-	var subComponents []ComponentStatus
+	return parseExtensionsComponentsOptimized(extensionsComponent)
+}
 
-	// Parse the extensions from the Components field
-	if extensionsComponent.Components != nil {
-		for extName, extComponent := range extensionsComponent.Components {
-			subComp := ComponentStatus{
-				Name:   extName,
-				Status: extComponent.Status,
-			}
+// parseExtensionsComponentsOptimized efficiently parses extensions components with memory optimization
+func parseExtensionsComponentsOptimized(extensionsComponent ComponentHealth) []ComponentStatus {
+	if extensionsComponent.Components == nil {
+		return nil
+	}
 
-			// Extract extension details (version, license info)
-			var details []string
-			if extComponent.Details != nil {
-				// Extract version
-				if version, exists := extComponent.Details["version"]; exists {
-					details = append(details, fmt.Sprintf("v%v", version))
-				}
+	// Pre-allocate slice with known capacity
+	subComponents := make([]ComponentStatus, 0, len(extensionsComponent.Components))
+	sb := stringBuilderPool.Get().(*strings.Builder)
+	defer stringBuilderPool.Put(sb)
 
-				// Look for license information in nested components
-				if extComponent.Components != nil {
-					if internals, exists := extComponent.Components["internals"]; exists {
-						if internals.Components != nil {
-							if license, exists := internals.Components["license"]; exists {
-								if license.Details != nil {
-									licenseInfo := extractLicenseInfo(license.Details)
-									if licenseInfo != "" {
-										details = append(details, licenseInfo)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			subComp.Details = strings.Join(details, ", ")
-			subComponents = append(subComponents, subComp)
+	for extName, extComponent := range extensionsComponent.Components {
+		subComp := ComponentStatus{
+			Name:   extName,
+			Status: extComponent.Status,
 		}
+
+		// Extract extension details efficiently
+		sb.Reset()
+		first := true
+		
+		// Extract version
+		if extComponent.Details != nil {
+			if version, exists := extComponent.Details["version"]; exists {
+				sb.WriteString(fmt.Sprintf("v%v", version))
+				first = false
+			}
+		}
+
+		// Look for license information in nested components
+		licenseInfo := extractLicenseInfoOptimized(extComponent)
+		if licenseInfo != "" {
+			if !first {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(licenseInfo)
+		}
+
+		subComp.Details = sb.String()
+		subComponents = append(subComponents, subComp)
 	}
 
 	return subComponents
+}
+
+// extractLicenseInfoOptimized efficiently extracts license information
+func extractLicenseInfoOptimized(extComponent ComponentHealth) string {
+	if extComponent.Components == nil {
+		return ""
+	}
+
+	internals, exists := extComponent.Components["internals"]
+	if !exists || internals.Components == nil {
+		return ""
+	}
+
+	license, exists := internals.Components["license"]
+	if !exists || license.Details == nil {
+		return ""
+	}
+
+	return extractLicenseInfo(license.Details)
 }
 
 // extractLicenseInfo extracts license information from license details

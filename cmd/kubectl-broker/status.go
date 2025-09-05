@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
 	"kubectl-broker/pkg"
 	"kubectl-broker/pkg/health"
 )
@@ -141,102 +142,180 @@ func runStatefulSetHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) er
 }
 
 func runSinglePodHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient) error {
-	if !outputJSON && !outputRaw && detailed {
-		fmt.Printf("Checking health of pod %s in namespace %s\n", podName, namespace)
-	}
-
-	// 2. Get the pod
-	pod, err := k8sClient.GetPod(ctx, namespace, podName)
+	// Get and validate the pod
+	pod, err := getPodAndValidate(ctx, k8sClient)
 	if err != nil {
-		return pkg.EnhanceError(err, fmt.Sprintf("pod %s in namespace %s", podName, namespace))
-	}
-
-	// 3. Validate pod status
-	if err := pkg.ValidatePodStatus(pod); err != nil {
 		return err
 	}
 
-	// 4. Discover health port (if not specified with --port)
+	// Discover or use specified health port
+	healthPort, err := resolveHealthPort(k8sClient, pod)
+	if err != nil {
+		return err
+	}
+
+	// Get local port and create options
+	localPort, options, err := prepareHealthCheckOptions()
+	if err != nil {
+		return err
+	}
+
+	// Perform the health check
+	parsedHealth, rawJSON, err := performHealthCheck(ctx, k8sClient, pod, healthPort, localPort, options)
+	if err != nil {
+		return err
+	}
+
+	// Display results
+	return displayHealthCheckResults(pod, parsedHealth, rawJSON, options)
+}
+
+// getPodAndValidate retrieves and validates a pod for health checking
+func getPodAndValidate(ctx context.Context, k8sClient *pkg.K8sClient) (*v1.Pod, error) {
+	if shouldShowDebugInfo() {
+		fmt.Printf("Checking health of pod %s in namespace %s\n", podName, namespace)
+	}
+
+	pod, err := k8sClient.GetPod(ctx, namespace, podName)
+	if err != nil {
+		return nil, pkg.EnhanceError(err, fmt.Sprintf("pod %s in namespace %s", podName, namespace))
+	}
+
+	if err := pkg.ValidatePodStatus(pod); err != nil {
+		return nil, err
+	}
+
+	return pod, nil
+}
+
+// resolveHealthPort determines the health port to use for the health check
+func resolveHealthPort(k8sClient *pkg.K8sClient, pod *v1.Pod) (int32, error) {
 	var healthPort int32
+	var err error
+
 	if port > 0 {
 		healthPort = int32(port)
-		if !outputJSON && !outputRaw && detailed {
+		if shouldShowDebugInfo() {
 			fmt.Printf("Using specified port: %d\n", healthPort)
 		}
 	} else {
 		healthPort, err = k8sClient.DiscoverHealthPort(pod)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		if !outputJSON && !outputRaw && detailed {
+		if shouldShowDebugInfo() {
 			fmt.Printf("Discovered health port: %d\n", healthPort)
 		}
 	}
 
-	// 5. Get a random local port for port-forwarding
+	return healthPort, nil
+}
+
+// prepareHealthCheckOptions creates local port and health check options
+func prepareHealthCheckOptions() (int, health.HealthCheckOptions, error) {
 	localPort, err := pkg.GetRandomPort()
 	if err != nil {
-		return fmt.Errorf("failed to get available local port: %w", err)
+		return 0, health.HealthCheckOptions{}, fmt.Errorf("failed to get available local port: %w", err)
 	}
 
-	// Create health options
 	options := health.HealthCheckOptions{
 		Endpoint:   endpoint,
 		OutputJSON: outputJSON,
 		OutputRaw:  outputRaw,
 		Detailed:   detailed,
 		Timeout:    10 * time.Second,
-		UseColors:  !outputJSON && !outputRaw, // Disable colors for JSON/raw output
+		UseColors:  !outputJSON && !outputRaw,
 	}
 
-	// 6. Establish port-forward connection and perform health check
+	return localPort, options, nil
+}
+
+// performHealthCheck executes the health check using port forwarding
+func performHealthCheck(ctx context.Context, k8sClient *pkg.K8sClient, pod *v1.Pod, healthPort int32, localPort int, options health.HealthCheckOptions) (*health.ParsedHealthData, []byte, error) {
 	pf := pkg.NewPortForwarder(k8sClient.GetConfig(), k8sClient.GetRESTClient())
 	parsedHealth, rawJSON, err := pf.PerformHealthCheckWithOptions(ctx, pod, healthPort, localPort, options)
 	if err != nil {
-		return pkg.EnhanceError(err, "health check")
+		return nil, nil, pkg.EnhanceError(err, "health check")
 	}
+	return parsedHealth, rawJSON, nil
+}
 
-	// Display results based on output format
+// displayHealthCheckResults formats and displays the health check results
+func displayHealthCheckResults(pod *v1.Pod, parsedHealth *health.ParsedHealthData, rawJSON []byte, options health.HealthCheckOptions) error {
 	if options.OutputRaw {
 		fmt.Print(string(rawJSON))
-	} else if options.OutputJSON {
-		fmt.Println(string(rawJSON))
-	} else if options.Detailed && parsedHealth != nil {
-		fmt.Printf("Pod: %s\n", pod.Name)
-		fmt.Printf("Overall Health: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
-		if len(parsedHealth.ComponentDetails) > 0 {
-			fmt.Println("Components:")
-			for _, comp := range parsedHealth.ComponentDetails {
-				fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatusWithColor(comp.Status, options.UseColors))
-				if comp.Details != "" {
-					fmt.Printf(" (%s)", comp.Details)
-				}
-
-				// Special handling for extensions - show individual extensions
-				if comp.Name == "extensions" && len(comp.SubComponents) > 0 {
-					fmt.Printf(" (%d extensions)", len(comp.SubComponents))
-					fmt.Println()
-					for _, ext := range comp.SubComponents {
-						fmt.Printf("    - %s: %s", ext.Name, health.FormatHealthStatusWithColor(ext.Status, options.UseColors))
-						if ext.Details != "" {
-							fmt.Printf(" (%s)", ext.Details)
-						}
-						fmt.Println()
-					}
-				} else {
-					fmt.Println()
-				}
-			}
-		}
-	} else {
-		// Standard output
-		if parsedHealth != nil {
-			fmt.Printf("Health check successful: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
-			fmt.Printf("Summary: %s\n", health.GetHealthSummaryWithColor(parsedHealth, options.UseColors))
-		} else {
-			fmt.Println("Health check completed")
-		}
+		return nil
 	}
 
+	if options.OutputJSON {
+		fmt.Println(string(rawJSON))
+		return nil
+	}
+
+	if options.Detailed && parsedHealth != nil {
+		return displayDetailedHealthResults(pod, parsedHealth, options)
+	}
+
+	return displayStandardHealthResults(parsedHealth, options)
+}
+
+// displayDetailedHealthResults shows detailed component breakdown
+func displayDetailedHealthResults(pod *v1.Pod, parsedHealth *health.ParsedHealthData, options health.HealthCheckOptions) error {
+	fmt.Printf("Pod: %s\n", pod.Name)
+	fmt.Printf("Overall Health: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
+	
+	if len(parsedHealth.ComponentDetails) > 0 {
+		fmt.Println("Components:")
+		for _, comp := range parsedHealth.ComponentDetails {
+			displayComponentDetails(comp, options.UseColors)
+		}
+	}
+	
 	return nil
+}
+
+// displayComponentDetails shows details for a single component
+func displayComponentDetails(comp health.ComponentStatus, useColors bool) {
+	fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatusWithColor(comp.Status, useColors))
+	
+	if comp.Details != "" {
+		fmt.Printf(" (%s)", comp.Details)
+	}
+
+	// Special handling for extensions
+	if comp.Name == "extensions" && len(comp.SubComponents) > 0 {
+		displayExtensionDetails(comp.SubComponents, useColors)
+	} else {
+		fmt.Println()
+	}
+}
+
+// displayExtensionDetails shows individual extension details
+func displayExtensionDetails(extensions []health.ComponentStatus, useColors bool) {
+	fmt.Printf(" (%d extensions)", len(extensions))
+	fmt.Println()
+	
+	for _, ext := range extensions {
+		fmt.Printf("    - %s: %s", ext.Name, health.FormatHealthStatusWithColor(ext.Status, useColors))
+		if ext.Details != "" {
+			fmt.Printf(" (%s)", ext.Details)
+		}
+		fmt.Println()
+	}
+}
+
+// displayStandardHealthResults shows standard output format
+func displayStandardHealthResults(parsedHealth *health.ParsedHealthData, options health.HealthCheckOptions) error {
+	if parsedHealth != nil {
+		fmt.Printf("Health check successful: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
+		fmt.Printf("Summary: %s\n", health.GetHealthSummaryWithColor(parsedHealth, options.UseColors))
+	} else {
+		fmt.Println("Health check completed")
+	}
+	return nil
+}
+
+// shouldShowDebugInfo returns whether debug information should be displayed
+func shouldShowDebugInfo() bool {
+	return !outputJSON && !outputRaw && detailed
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"text/tabwriter"
 	"time"
@@ -26,8 +27,207 @@ type HealthCheckResult struct {
 	RawJSON      []byte
 }
 
-// PerformConcurrentHealthChecks performs health checks on multiple pods concurrently
+// WorkerPoolConfig configures the worker pool for concurrent operations
+type WorkerPoolConfig struct {
+	MaxWorkers      int
+	QueueSize       int
+	RequestTimeout  time.Duration
+	ShutdownTimeout time.Duration
+}
+
+// DefaultWorkerPoolConfig returns sensible defaults for the worker pool
+func DefaultWorkerPoolConfig() WorkerPoolConfig {
+	return WorkerPoolConfig{
+		MaxWorkers:      min(runtime.NumCPU()*2, 10), // Limit to reasonable concurrency
+		QueueSize:       100,
+		RequestTimeout:  30 * time.Second,
+		ShutdownTimeout: 5 * time.Second,
+	}
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// HealthCheckJob represents a health check job for the worker pool
+type HealthCheckJob struct {
+	Index   int
+	Pod     *v1.Pod
+	Port    int32
+	Options health.HealthCheckOptions
+	Result  chan<- HealthCheckResult
+}
+
+// WorkerPool manages concurrent health check operations
+type WorkerPool struct {
+	workers   int
+	jobs      chan HealthCheckJob
+	results   chan HealthCheckResult
+	k8sClient *K8sClient
+	ctx       context.Context
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	config    WorkerPoolConfig
+}
+
+// NewWorkerPool creates a new worker pool for health checks
+func NewWorkerPool(k8sClient *K8sClient, config WorkerPoolConfig) *WorkerPool {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &WorkerPool{
+		workers:   config.MaxWorkers,
+		jobs:      make(chan HealthCheckJob, config.QueueSize),
+		results:   make(chan HealthCheckResult, config.QueueSize),
+		k8sClient: k8sClient,
+		ctx:       ctx,
+		cancel:    cancel,
+		config:    config,
+	}
+}
+
+// Start initializes and starts the worker pool
+func (wp *WorkerPool) Start() {
+	for i := 0; i < wp.workers; i++ {
+		wp.wg.Add(1)
+		go wp.worker()
+	}
+}
+
+// Stop gracefully shuts down the worker pool
+func (wp *WorkerPool) Stop() error {
+	close(wp.jobs)
+	
+	// Wait for workers to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		wp.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-time.After(wp.config.ShutdownTimeout):
+		wp.cancel() // Force cancellation if timeout exceeded
+		return NewConfigurationError("worker_pool_shutdown", "timeout exceeded during worker pool shutdown")
+	}
+}
+
+// SubmitJob submits a health check job to the worker pool
+func (wp *WorkerPool) SubmitJob(job HealthCheckJob) error {
+	select {
+	case wp.jobs <- job:
+		return nil
+	case <-wp.ctx.Done():
+		return NewConfigurationError("worker_pool_submit", "worker pool is shutting down")
+	default:
+		return NewConfigurationError("worker_pool_submit", "job queue is full")
+	}
+}
+
+// worker processes health check jobs
+func (wp *WorkerPool) worker() {
+	defer wp.wg.Done()
+	
+	for {
+		select {
+		case job, ok := <-wp.jobs:
+			if !ok {
+				return // Channel closed, worker should exit
+			}
+			
+			// Create context with timeout for this specific job
+			jobCtx, cancel := context.WithTimeout(wp.ctx, wp.config.RequestTimeout)
+			result := wp.k8sClient.performSinglePodHealthCheckWithContext(jobCtx, job.Pod, job.Port, job.Options)
+			cancel()
+			
+			// Send result back
+			select {
+			case job.Result <- result:
+			case <-wp.ctx.Done():
+				return
+			}
+			
+		case <-wp.ctx.Done():
+			return
+		}
+	}
+}
+
+// PerformConcurrentHealthChecks performs health checks on multiple pods concurrently using a worker pool
 func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v1.Pod, portOverride int32, options health.HealthCheckOptions) error {
+	if len(pods) == 0 {
+		return NewValidationError("health_check", "", "no pods provided for health check")
+	}
+
+	// Use worker pool for better resource management
+	config := DefaultWorkerPoolConfig()
+	// Adjust worker count based on number of pods
+	if len(pods) < config.MaxWorkers {
+		config.MaxWorkers = len(pods)
+	}
+	
+	wp := NewWorkerPool(k, config)
+	wp.Start()
+	defer func() {
+		if err := wp.Stop(); err != nil {
+			// Log error but don't fail the operation
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		}
+	}()
+
+	// Create results channel and slice
+	results := make([]HealthCheckResult, len(pods))
+	resultsChan := make(chan HealthCheckResult, len(pods))
+
+	// Submit jobs to worker pool
+	for i, pod := range pods {
+		job := HealthCheckJob{
+			Index:   i,
+			Pod:     pod,
+			Port:    portOverride,
+			Options: options,
+			Result:  resultsChan,
+		}
+		
+		if err := wp.SubmitJob(job); err != nil {
+			// If we can't submit job, return error wrapped with context
+			return fmt.Errorf("failed to submit health check job for pod %s: %w", pod.Name, err)
+		}
+	}
+
+	// Collect results with timeout
+	timeout := time.After(60 * time.Second) // Overall operation timeout
+	completedCount := 0
+	
+	for completedCount < len(pods) {
+		select {
+		case result := <-resultsChan:
+			// Find the correct index for this result
+			for i, pod := range pods {
+				if pod.Name == result.PodName {
+					results[i] = result
+					break
+				}
+			}
+			completedCount++
+		case <-timeout:
+			return NewHealthCheckError("concurrent_health_check", fmt.Sprintf("%d pods", len(pods)), 
+				fmt.Errorf("operation timed out after 60 seconds, completed %d/%d checks", completedCount, len(pods)))
+		case <-ctx.Done():
+			return NewHealthCheckError("concurrent_health_check", fmt.Sprintf("%d pods", len(pods)), ctx.Err())
+		}
+	}
+
+	// Display results in tabular format
+	return k.displayHealthCheckResults(results, options)
+}
+
+// PerformConcurrentHealthChecksLegacy is the original implementation for backward compatibility
+func (k *K8sClient) PerformConcurrentHealthChecksLegacy(ctx context.Context, pods []*v1.Pod, portOverride int32, options health.HealthCheckOptions) error {
 	results := make([]HealthCheckResult, len(pods))
 	var wg sync.WaitGroup
 
@@ -47,7 +247,93 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 	return k.displayHealthCheckResults(results, options)
 }
 
-// performSinglePodHealthCheck performs a health check on a single pod
+// performSinglePodHealthCheckWithContext performs a health check on a single pod with better context handling
+func (k *K8sClient) performSinglePodHealthCheckWithContext(ctx context.Context, pod *v1.Pod, portOverride int32, options health.HealthCheckOptions) HealthCheckResult {
+	result := HealthCheckResult{
+		PodName: pod.Name,
+		Status:  "UNKNOWN",
+	}
+
+	// Check context cancellation early
+	select {
+	case <-ctx.Done():
+		result.Status = "CANCELLED"
+		result.Error = NewHealthCheckError("health_check", pod.Name, ctx.Err())
+		result.Details = "Health check was cancelled"
+		return result
+	default:
+	}
+
+	// 1. Validate pod status
+	if err := ValidatePodStatus(pod); err != nil {
+		result.Status = "POD_NOT_READY"
+		result.Error = err
+		result.Details = err.Error()
+		return result
+	}
+
+	// 2. Discover health port with error wrapping
+	var healthPort int32
+	var err error
+	if portOverride > 0 {
+		healthPort = portOverride
+	} else {
+		healthPort, err = k.DiscoverHealthPort(pod)
+		if err != nil {
+			result.Status = "PORT_DISCOVERY_FAILED"
+			result.Error = NewKubernetesError("discover_health_port", pod.Name, err)
+			result.Details = err.Error()
+			return result
+		}
+	}
+	result.HealthPort = healthPort
+
+	// 3. Get random local port with retry logic
+	localPort, err := GetRandomPortWithRetry(ctx, 3)
+	if err != nil {
+		result.Status = "LOCAL_PORT_FAILED"
+		result.Error = NewNetworkError("get_random_port", pod.Name, err)
+		result.Details = "Failed to get available local port"
+		return result
+	}
+	result.LocalPort = localPort
+
+	// 4. Perform health check with port-forwarding
+	startTime := time.Now()
+	pf := NewPortForwarder(k.config, k.restClient)
+
+	parsedHealth, rawJSON, err := pf.PerformHealthCheckWithOptions(ctx, pod, healthPort, localPort, options)
+	result.ResponseTime = time.Since(startTime)
+
+	if err != nil {
+		result.Status = "HEALTH_CHECK_FAILED"
+		result.Error = NewHealthCheckError("perform_health_check", pod.Name, err)
+		result.Details = err.Error()
+		return result
+	}
+
+	// Store parsed health data and raw JSON
+	result.ParsedHealth = parsedHealth
+	result.RawJSON = rawJSON
+
+	// Set status based on parsed health data with improved logic
+	if parsedHealth != nil {
+		if health.IsHealthy(parsedHealth.OverallStatus) {
+			result.Status = "HEALTHY"
+		} else {
+			result.Status = string(parsedHealth.OverallStatus)
+		}
+		result.Details = health.GetHealthSummaryWithColor(parsedHealth, options.UseColors)
+	} else {
+		// Raw output mode
+		result.Status = "RESPONSE_RECEIVED"
+		result.Details = "Raw response received"
+	}
+
+	return result
+}
+
+// performSinglePodHealthCheck performs a health check on a single pod (legacy method)
 func (k *K8sClient) performSinglePodHealthCheck(ctx context.Context, pod *v1.Pod, portOverride int32, options health.HealthCheckOptions) HealthCheckResult {
 	result := HealthCheckResult{
 		PodName: pod.Name,
