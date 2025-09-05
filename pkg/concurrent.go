@@ -99,7 +99,7 @@ func (wp *WorkerPool) Start() {
 // Stop gracefully shuts down the worker pool
 func (wp *WorkerPool) Stop() error {
 	close(wp.jobs)
-	
+
 	// Wait for workers to finish with timeout
 	done := make(chan struct{})
 	go func() {
@@ -131,26 +131,26 @@ func (wp *WorkerPool) SubmitJob(job HealthCheckJob) error {
 // worker processes health check jobs
 func (wp *WorkerPool) worker() {
 	defer wp.wg.Done()
-	
+
 	for {
 		select {
 		case job, ok := <-wp.jobs:
 			if !ok {
 				return // Channel closed, worker should exit
 			}
-			
+
 			// Create context with timeout for this specific job
 			jobCtx, cancel := context.WithTimeout(wp.ctx, wp.config.RequestTimeout)
 			result := wp.k8sClient.performSinglePodHealthCheckWithContext(jobCtx, job.Pod, job.Port, job.Options)
 			cancel()
-			
+
 			// Send result back
 			select {
 			case job.Result <- result:
 			case <-wp.ctx.Done():
 				return
 			}
-			
+
 		case <-wp.ctx.Done():
 			return
 		}
@@ -169,7 +169,7 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 	if len(pods) < config.MaxWorkers {
 		config.MaxWorkers = len(pods)
 	}
-	
+
 	wp := NewWorkerPool(k, config)
 	wp.Start()
 	defer func() {
@@ -192,7 +192,7 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 			Options: options,
 			Result:  resultsChan,
 		}
-		
+
 		if err := wp.SubmitJob(job); err != nil {
 			// If we can't submit job, return error wrapped with context
 			return fmt.Errorf("failed to submit health check job for pod %s: %w", pod.Name, err)
@@ -202,7 +202,7 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 	// Collect results with timeout
 	timeout := time.After(60 * time.Second) // Overall operation timeout
 	completedCount := 0
-	
+
 	for completedCount < len(pods) {
 		select {
 		case result := <-resultsChan:
@@ -215,7 +215,7 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 			}
 			completedCount++
 		case <-timeout:
-			return NewHealthCheckError("concurrent_health_check", fmt.Sprintf("%d pods", len(pods)), 
+			return NewHealthCheckError("concurrent_health_check", fmt.Sprintf("%d pods", len(pods)),
 				fmt.Errorf("operation timed out after 60 seconds, completed %d/%d checks", completedCount, len(pods)))
 		case <-ctx.Done():
 			return NewHealthCheckError("concurrent_health_check", fmt.Sprintf("%d pods", len(pods)), ctx.Err())

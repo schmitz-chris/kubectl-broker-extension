@@ -17,13 +17,13 @@ var (
 			return &bytes.Buffer{}
 		},
 	}
-	
+
 	stringBuilderPool = sync.Pool{
 		New: func() interface{} {
 			return &strings.Builder{}
 		},
 	}
-	
+
 	parsedDataPool = sync.Pool{
 		New: func() interface{} {
 			return &ParsedHealthData{}
@@ -50,7 +50,7 @@ func ParseHealthResponseWithPodName(jsonData []byte, podName string) (*ParsedHea
 	// Get parsed data from pool and reset it
 	parsed := parsedDataPool.Get().(*ParsedHealthData)
 	resetParsedHealthData(parsed)
-	
+
 	// Set basic fields
 	parsed.PodName = podName
 	parsed.OverallStatus = healthResp.Status
@@ -60,7 +60,7 @@ func ParseHealthResponseWithPodName(jsonData []byte, podName string) (*ParsedHea
 	// Parse components if available
 	if healthResp.Components != nil {
 		parsed.ComponentCount = len(healthResp.Components)
-		
+
 		// Pre-allocate slice with known capacity for better performance
 		if parsed.ComponentDetails == nil {
 			parsed.ComponentDetails = make([]ComponentStatus, 0, len(healthResp.Components))
@@ -173,7 +173,7 @@ func parseExtensionsComponentsOptimized(extensionsComponent ComponentHealth) []C
 		// Extract extension details efficiently
 		sb.Reset()
 		first := true
-		
+
 		// Extract version
 		if extComponent.Details != nil {
 			if version, exists := extComponent.Details["version"]; exists {

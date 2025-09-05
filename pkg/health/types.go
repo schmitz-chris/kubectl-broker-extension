@@ -71,12 +71,12 @@ type ComponentHealth struct {
 
 // ParsedHealthData represents analyzed health information for display
 type ParsedHealthData struct {
-	PodName             string        `validate:"required"` // Pod name for JSON output
-	OverallStatus       HealthStatus  `validate:"required"` 
-	ComponentCount      int           `validate:"min=0"`
-	HealthyComponents   int           `validate:"min=0"`
-	DegradedComponents  int           `validate:"min=0"`
-	UnhealthyComponents int           `validate:"min=0"`
+	PodName             string       `validate:"required"` // Pod name for JSON output
+	OverallStatus       HealthStatus `validate:"required"`
+	ComponentCount      int          `validate:"min=0"`
+	HealthyComponents   int          `validate:"min=0"`
+	DegradedComponents  int          `validate:"min=0"`
+	UnhealthyComponents int          `validate:"min=0"`
 	ComponentDetails    []ComponentStatus
 	RawJSON             []byte
 }
@@ -114,7 +114,7 @@ func (phd *ParsedHealthData) Validate() error {
 	// Validate that component counts add up correctly
 	totalCounted := phd.HealthyComponents + phd.DegradedComponents + phd.UnhealthyComponents
 	if totalCounted > phd.ComponentCount {
-		return fmt.Errorf("sum of health component counts (%d) exceeds total component count (%d)", 
+		return fmt.Errorf("sum of health component counts (%d) exceeds total component count (%d)",
 			totalCounted, phd.ComponentCount)
 	}
 
@@ -135,8 +135,8 @@ func (phd *ParsedHealthData) IsHealthy() bool {
 
 // ComponentStatus represents the status of an individual component
 type ComponentStatus struct {
-	Name          string        `validate:"required"`
-	Status        HealthStatus  `validate:"required"`
+	Name          string       `validate:"required"`
+	Status        HealthStatus `validate:"required"`
 	Details       string
 	SubComponents []ComponentStatus // For nested components like individual extensions
 }
@@ -188,7 +188,7 @@ func (opts *HealthCheckOptions) Validate() error {
 	if opts.Endpoint == "" {
 		return fmt.Errorf("endpoint cannot be empty, must be one of: %s", strings.Join(validEndpoints, ", "))
 	}
-	
+
 	found := false
 	for _, valid := range validEndpoints {
 		if opts.Endpoint == valid {

@@ -15,11 +15,11 @@ import (
 type ErrType string
 
 const (
-	ErrTypeKubernetes   ErrType = "kubernetes"
-	ErrTypeNetwork      ErrType = "network"
-	ErrTypeValidation   ErrType = "validation"
-	ErrTypeHealthCheck  ErrType = "health_check"
-	ErrTypePortforward  ErrType = "portforward"
+	ErrTypeKubernetes    ErrType = "kubernetes"
+	ErrTypeNetwork       ErrType = "network"
+	ErrTypeValidation    ErrType = "validation"
+	ErrTypeHealthCheck   ErrType = "health_check"
+	ErrTypePortforward   ErrType = "portforward"
 	ErrTypeConfiguration ErrType = "configuration"
 )
 

@@ -263,21 +263,21 @@ func displayHealthCheckResults(pod *v1.Pod, parsedHealth *health.ParsedHealthDat
 func displayDetailedHealthResults(pod *v1.Pod, parsedHealth *health.ParsedHealthData, options health.HealthCheckOptions) error {
 	fmt.Printf("Pod: %s\n", pod.Name)
 	fmt.Printf("Overall Health: %s\n", health.FormatHealthStatusWithColor(parsedHealth.OverallStatus, options.UseColors))
-	
+
 	if len(parsedHealth.ComponentDetails) > 0 {
 		fmt.Println("Components:")
 		for _, comp := range parsedHealth.ComponentDetails {
 			displayComponentDetails(comp, options.UseColors)
 		}
 	}
-	
+
 	return nil
 }
 
 // displayComponentDetails shows details for a single component
 func displayComponentDetails(comp health.ComponentStatus, useColors bool) {
 	fmt.Printf("  - %s: %s", comp.Name, health.FormatHealthStatusWithColor(comp.Status, useColors))
-	
+
 	if comp.Details != "" {
 		fmt.Printf(" (%s)", comp.Details)
 	}
@@ -294,7 +294,7 @@ func displayComponentDetails(comp health.ComponentStatus, useColors bool) {
 func displayExtensionDetails(extensions []health.ComponentStatus, useColors bool) {
 	fmt.Printf(" (%d extensions)", len(extensions))
 	fmt.Println()
-	
+
 	for _, ext := range extensions {
 		fmt.Printf("    - %s: %s", ext.Name, health.FormatHealthStatusWithColor(ext.Status, useColors))
 		if ext.Details != "" {

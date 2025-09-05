@@ -402,7 +402,7 @@ func GetRandomPortWithRetry(ctx context.Context, maxRetries int) (int, error) {
 
 		// If this is the last retry, return the error
 		if i == maxRetries-1 {
-			return 0, NewNetworkError("get_random_port", "", 
+			return 0, NewNetworkError("get_random_port", "",
 				fmt.Errorf("failed to get random port after %d retries: %w", maxRetries, err))
 		}
 
@@ -410,7 +410,7 @@ func GetRandomPortWithRetry(ctx context.Context, maxRetries int) (int, error) {
 		time.Sleep(time.Millisecond * time.Duration(50*(i+1)))
 	}
 
-	return 0, NewNetworkError("get_random_port", "", 
+	return 0, NewNetworkError("get_random_port", "",
 		fmt.Errorf("exhausted all %d retry attempts", maxRetries))
 }
 

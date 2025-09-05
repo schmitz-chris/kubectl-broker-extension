@@ -7,9 +7,9 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 
 	"kubectl-broker/pkg/health"
 )
@@ -20,26 +20,26 @@ type KubernetesClient interface {
 	GetPod(ctx context.Context, namespace, name string) (*v1.Pod, error)
 	GetPodsFromStatefulSet(ctx context.Context, namespace, statefulSetName string) ([]*v1.Pod, error)
 	GetStatefulSetPods(ctx context.Context, namespace, statefulSetName string) ([]v1.Pod, error)
-	
+
 	// Port discovery
 	DiscoverHealthPort(pod *v1.Pod) (int32, error)
 	DiscoverAPIPort(pod *v1.Pod) (int32, error)
-	
+
 	// StatefulSet operations
 	GetStatefulSet(ctx context.Context, namespace, name string) (*appsv1.StatefulSet, error)
-	
+
 	// Service operations
 	GetAPIServiceFromStatefulSet(ctx context.Context, namespace, statefulSetName string) (*v1.Service, error)
 	DiscoverServiceAPIPort(service *v1.Service) (int32, error)
-	
+
 	// Health check operations
 	PerformConcurrentHealthChecks(ctx context.Context, pods []*v1.Pod, port int32, options health.HealthCheckOptions) error
 	DiscoverBrokers(ctx context.Context) error
-	
+
 	// Command execution
 	ExecCommand(ctx context.Context, namespace, podName string, command []string) (string, error)
 	ExecCommandStream(ctx context.Context, namespace, podName string, command []string) (io.ReadCloser, error)
-	
+
 	// Client access
 	GetConfig() *rest.Config
 	GetRESTClient() rest.Interface
@@ -70,7 +70,7 @@ type BackupManager interface {
 	GetBackupStatus(ctx context.Context, namespace, statefulSetName, backupID string) (*BackupStatus, error)
 }
 
-// VolumeManager defines the interface for volume operations  
+// VolumeManager defines the interface for volume operations
 type VolumeManager interface {
 	ListVolumes(ctx context.Context, namespace string, options VolumeListOptions) ([]VolumeInfo, error)
 	GetVolumeUsage(ctx context.Context, namespace, statefulSetName string, detailed bool) (*VolumeUsageResult, error)
@@ -152,14 +152,14 @@ type VolumeListOptions struct {
 
 // VolumeInfo holds information about a volume
 type VolumeInfo struct {
-	Name        string
-	Namespace   string
-	Size        string
-	Used        string
-	Available   string
-	UsePercent  float64
-	MountPath   string
-	PodName     string
+	Name       string
+	Namespace  string
+	Size       string
+	Used       string
+	Available  string
+	UsePercent float64
+	MountPath  string
+	PodName    string
 }
 
 // VolumeUsageResult holds the result of volume usage analysis
