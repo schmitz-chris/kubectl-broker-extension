@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that provides comprehensive HiveMQ cluster management for Kubernetes. The project has completed all major phases (1-7) and features intelligent defaults, concurrent health checks, optimized binary size, enhanced HiveMQ Health API analysis, extensible subcommand architecture, and complete backup management functionality.
+This is a production-ready Go project for `kubectl-broker`, a kubectl plugin CLI tool that provides comprehensive HiveMQ
+cluster management for Kubernetes. The project has completed all major phases (1-7) and features intelligent defaults,
+concurrent health checks, optimized binary size, enhanced HiveMQ Health API analysis, extensible subcommand
+architecture, and complete backup management functionality.
 
 ## Project Structure
 
@@ -53,6 +56,7 @@ make uninstall     # Remove installed plugin
 ```
 
 The tool is used as a kubectl plugin with subcommand architecture:
+
 ```bash
 # Show available commands
 kubectl broker
@@ -91,13 +95,15 @@ kubectl broker backup create --username admin --password secret
 The tool has completed all planned development phases:
 
 ### ✅ Phase 1: Single Pod Connection (Completed)
+
 - Native `k8s.io/client-go` library with optimized typed clients
-- Enhanced port discovery with fallback strategy and `--port/-p` flag override  
+- Enhanced port discovery with fallback strategy and `--port/-p` flag override
 - Programmatic port-forwarding to query health endpoints directly
 - Single pod targeting via `--pod` and `--namespace` flags
 - Comprehensive error handling for RBAC issues, pod status, and connectivity problems
 
 ### ✅ Phase 2: Parallel Cluster Health Checks (Completed)
+
 - StatefulSet pod discovery using label selectors
 - Dynamic port allocation using `net.Listen(":0")` for concurrent connections
 - Concurrent health checks across multiple broker instances with goroutines
@@ -105,17 +111,20 @@ The tool has completed all planned development phases:
 - Professional tabular output with response times and status details
 
 ### ✅ Phase 3: Production Polish (Completed)
+
 - Intelligent defaults (namespace from kubectl context, default StatefulSet name "broker")
 - Visual feedback showing which defaults were applied (🎯 indicators)
 - Comprehensive error handling with actionable guidance for users
 - Context-aware error messages that suggest solutions
 
 ### ✅ Phase 4: kubectl Plugin Integration (Completed)
+
 - Professional installation as kubectl plugin with `~/.kubectl-broker/` directory
 - Automated installation script with shell detection and PATH management
 - Cross-platform build system with size optimization
 
 ### ✅ Phase 5: Enhanced HiveMQ Health API Analysis (Completed)
+
 - Advanced JSON parsing of HiveMQ health responses with Go structs
 - Multiple output formats: tabular, JSON, raw, detailed component breakdown
 - Support for different health endpoints: health, liveness, readiness
@@ -125,6 +134,7 @@ The tool has completed all planned development phases:
 - **Color-coded health status indicators** for improved visual recognition of broker states
 
 ### ✅ Phase 6: Subcommand Architecture (Completed)
+
 - Extensible CLI structure with parent command and subcommands
 - `status` subcommand containing all health checking functionality
 - `backup` subcommand framework for future backup operations
@@ -133,16 +143,18 @@ The tool has completed all planned development phases:
 - Foundation for additional HiveMQ cluster management features
 
 ### ✅ Phase 7: HiveMQ Backup Management (Completed)
+
 - Complete backup management system using HiveMQ REST API
 - Four backup subcommands: create, list, download, status
 - Intelligent defaults and consistent UX with existing health monitoring
 - Progress indicators and status polling for long-running operations
-  - File download with progress bars and automatic filename handling
+    - File download with progress bars and automatic filename handling
 - Color-coded status display matching health command patterns
 - Comprehensive error handling with actionable guidance
 - Authentication support for secured HiveMQ instances
 
 ### ✅ Phase 8: Backup Directory Move Enhancement (Completed)
+
 - Automatic backup directory moving within pod filesystem using `--destination` flag
 - Environment variable detection for backup folder location (`HIVEMQ_BACKUP_FOLDER`)
 - Intelligent pod discovery to locate backup directories across StatefulSet instances
@@ -152,6 +164,7 @@ The tool has completed all planned development phases:
 - Move operation preserves directory structure and removes original location
 
 ### 🚀 Binary Size Optimization (Completed)
+
 - Optimized from 53MB to 35MB (-34% reduction) using selective Kubernetes client imports
 - Replaced full `kubernetes.Clientset` with specific typed clients (`CoreV1Client`, `AppsV1Client`)
 - Advanced build optimization with `-ldflags="-w -s"`, `-trimpath`, `CGO_ENABLED=0`
@@ -159,20 +172,25 @@ The tool has completed all planned development phases:
 
 ## Key Technical Decisions
 
-- **Optimized Kubernetes Integration**: Uses specific typed clients (`CoreV1Client`, `AppsV1Client`) instead of full `kubernetes.Clientset` for minimal binary size
+- **Optimized Kubernetes Integration**: Uses specific typed clients (`CoreV1Client`, `AppsV1Client`) instead of full
+  `kubernetes.Clientset` for minimal binary size
 - **Programmatic Port-Forwarding**: Self-contained operation using custom REST client for SPDY connections
 - **Concurrent Architecture**: Goroutines with dynamic port allocation using centralized `GetRandomPort()` utility
 - **Intelligent Defaults**: Context-aware namespace detection and StatefulSet name defaulting
 - **User-Centric Installation**: `~/.kubectl-broker/` directory avoiding system-wide installation
 - **HiveMQ-Specific**: Targets broker StatefulSets with health endpoints on port named "health"
 - **Local Operator Focus**: Designed for diagnostic execution from operator machines
-- **Enhanced Health Analysis**: Comprehensive JSON parsing with multiple output formats for both human operators and external tool integration
-- **Color-Coded Status Display**: Visual health status indicators using `github.com/fatih/color` for improved user experience
-- **Production Code Quality**: Clean, linter-compliant Go code following best practices with proper error handling and deprecation management
+- **Enhanced Health Analysis**: Comprehensive JSON parsing with multiple output formats for both human operators and
+  external tool integration
+- **Color-Coded Status Display**: Visual health status indicators using `github.com/fatih/color` for improved user
+  experience
+- **Production Code Quality**: Clean, linter-compliant Go code following best practices with proper error handling and
+  deprecation management
 
 ## HiveMQ Integration
 
 The tool is specifically designed for HiveMQ broker clusters where:
+
 - Brokers run as StatefulSets in Kubernetes
 - Each pod exposes a health API endpoint (typically on port 9090)
 - Health checks return JSON status information about cluster state, extensions, and MQTT listeners
@@ -182,16 +200,19 @@ The tool is specifically designed for HiveMQ broker clusters where:
 
 The tool now provides comprehensive analysis of HiveMQ's health API responses:
 
-- **Component Analysis**: Parses and displays status of individual components (cluster, MQTT, extensions, control-center, rest-api, etc.)
-- **Multiple Endpoints**: Supports `/api/v1/health/` (full), `/api/v1/health/liveness` (basic), `/api/v1/health/readiness` (ready to serve)
+- **Component Analysis**: Parses and displays status of individual components (cluster, MQTT, extensions,
+  control-center, rest-api, etc.)
+- **Multiple Endpoints**: Supports `/api/v1/health/` (full), `/api/v1/health/liveness` (basic),
+  `/api/v1/health/readiness` (ready to serve)
 - **Status Interpretation**: Understands HiveMQ status values (UP, DOWN, DEGRADED, UNKNOWN, OUT_OF_SERVICE)
-- **Output Formats**: 
-  - **Tabular**: Enhanced with component counts (e.g., "Overall: [UP], Components: 8 total, 8 healthy")
-  - **JSON**: Raw responses for external tool integration (jq, monitoring systems)
-  - **Detailed**: Component-by-component breakdown with details
-  - **Raw**: Unprocessed responses for debugging
+- **Output Formats**:
+    - **Tabular**: Enhanced with component counts (e.g., "Overall: [UP], Components: 8 total, 8 healthy")
+    - **JSON**: Raw responses for external tool integration (jq, monitoring systems)
+    - **Detailed**: Component-by-component breakdown with details
+    - **Raw**: Unprocessed responses for debugging
 
 Example clean output (normal usage with color-coded status):
+
 ```
 POD NAME  STATUS   DETAILS
 --------  ------   -------
@@ -202,13 +223,15 @@ Summary: 2/2 pods healthy
 ```
 
 **Color Scheme:**
+
 - `[UP]`: Green + Bold (healthy status)
-- `[DOWN]`: Red + Bold (critical/failed status)  
+- `[DOWN]`: Red + Bold (critical/failed status)
 - `[DEGRADED]`: Yellow + Bold (warning/degraded status)
 - `[UNKNOWN]`: White (unclear status)
 - `[OUT_OF_SERVICE]`: Magenta (intentionally offline)
 
 Example detailed output (with `--detailed` flag):
+
 ```
 Using default kubeconfig: /Users/chris/.kube/config
 Using cluster: arn:aws:eks:eu-central-1:...
@@ -228,6 +251,7 @@ Components:
   - extensions: [UP]
   [... detailed component breakdown ...]
 ```
+
 ```
 
 ## CLI Coding Guidelines
@@ -264,6 +288,7 @@ Components:
 #### Backup Creation (Before/After)
 **Before (verbose, 13 lines):**
 ```
+
 Warning: Backup operations may consume significant disk space...
 Creating backup using service hivemq-broker-api...
 Connected to API on port 51635, testing management API...
@@ -274,10 +299,12 @@ Status: COMPLETED
 Backup completed successfully! Size: 1.0 KB    [duplicate]
 Backup completed successfully!                  [duplicate]
 ...
+
 ```
 
 **After (clean, 6 lines):**
 ```
+
 Creating backup for StatefulSet broker in namespace xyz
 Backup created: 20250806-083755
 Waiting for completion.... done
@@ -285,6 +312,7 @@ Waiting for completion.... done
 Backup ID: 20250806-083755
 Status: COMPLETED
 Size: 1.0 KB | Created: 2025-08-06T08:37:55Z
+
 ```
 
 #### Error Messages (Improved)

@@ -1,13 +1,16 @@
 # kubectl-broker
 
-A production-ready kubectl plugin for comprehensive HiveMQ cluster management on Kubernetes, providing health diagnostics, backup operations, and intelligent cluster monitoring.
+A production-ready kubectl plugin for comprehensive HiveMQ cluster management on Kubernetes, providing health
+diagnostics, backup operations, and intelligent cluster monitoring.
 
 ## Features
 
 ### Health Diagnostics
+
 - **Single Pod Health Checks**: Check individual HiveMQ broker pods with detailed component analysis
 - **Parallel Cluster Health Checks**: Concurrent health checks across entire StatefulSets
-- **Enhanced Health API Analysis**: Comprehensive JSON parsing with component-level status (cluster, extensions, MQTT listeners)
+- **Enhanced Health API Analysis**: Comprehensive JSON parsing with component-level status (cluster, extensions, MQTT
+  listeners)
 - **Individual Extension Details**: Detailed information for each HiveMQ extension including version and license status
 - **Color-Coded Status Display**: Visual health indicators (UP/DOWN/DEGRADED) for improved monitoring
 - **Multiple Output Formats**: Tabular, JSON, raw, and detailed component breakdown
@@ -15,6 +18,7 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 - **Intelligent Defaults**: Automatically uses StatefulSet "broker" and current kubectl context namespace
 
 ### Backup Management
+
 - **Backup Operations**: Create, list, download, restore, and monitor backup status
 - **Live Restore**: Safe restoration to running clusters with automatic conflict resolution (HiveMQ 4.9.0+)
 - **Backup Directory Management**: Automatic backup directory moving within pod filesystem
@@ -23,6 +27,7 @@ A production-ready kubectl plugin for comprehensive HiveMQ cluster management on
 - **File Download**: Automatic backup download with progress bars
 
 ### Volume Management
+
 - **Volume Discovery**: List and analyze persistent volumes and claims across clusters
 - **Orphaned Volume Detection**: Identify volumes without associated pods for cleanup
 - **Storage Cleanup**: Safe deletion of released and orphaned volumes with dry-run support
@@ -220,10 +225,13 @@ You can also run the binary directly:
 ### Health Diagnostics Examples
 
 #### Quick Health Check with Defaults
+
 ```bash
 kubectl broker status
 ```
+
 Output:
+
 ```
 Using default StatefulSet: broker
 Using namespace from context: production-hivemq
@@ -240,10 +248,13 @@ Summary: 3/3 pods healthy
 ```
 
 #### Discovery Mode
+
 ```bash
 kubectl broker status --discover
 ```
+
 Output:
+
 ```
 Namespace: production-hivemq
   - broker-0
@@ -253,10 +264,13 @@ Namespace: production-hivemq
 ```
 
 #### Detailed Health Check Output
+
 ```bash
 kubectl broker status --statefulset broker --namespace production-hivemq --detailed
 ```
+
 Output:
+
 ```
 Starting concurrent health checks for 3 pods...
 
@@ -281,10 +295,13 @@ Components:
 ### Backup Management Examples
 
 #### Create Backup
+
 ```bash
 kubectl broker backup create --statefulset broker --namespace production
 ```
+
 Output:
+
 ```
 Creating backup for StatefulSet broker in namespace production
 Backup created: 20250819-143025
@@ -296,10 +313,13 @@ Size: 1.2 MB | Created: 2025-08-19T14:30:25Z
 ```
 
 #### List Backups
+
 ```bash
 kubectl broker backup list --statefulset broker --namespace production
 ```
+
 Output:
+
 ```
 BACKUP ID        STATUS      SIZE     CREATED
 ---------        ------      ----     -------
@@ -311,10 +331,13 @@ Total: 3 backups
 ```
 
 #### Download Backup
+
 ```bash
 kubectl broker backup download --latest --output-dir ./backups --statefulset broker --namespace production
 ```
+
 Output:
+
 ```
 Downloading latest backup...
 Progress: [████████████████████████████████] 100% (1.2 MB / 1.2 MB)
@@ -325,10 +348,13 @@ Size: 1.2 MB
 ```
 
 #### Restore Backup
+
 ```bash
 kubectl broker backup restore --id 20250819-143025 --statefulset broker --namespace production
 ```
+
 Output:
+
 ```
 Restoring backup for StatefulSet broker in namespace production
 Using backup: 20250819-143025
@@ -341,15 +367,19 @@ Backup ID: 20250819-143025
 Status: RESTORE_COMPLETED
 ```
 
-**Important:** Restore can be performed on running clusters (HiveMQ 4.9.0+). HiveMQ automatically resolves data conflicts during live restore operations.
+**Important:** Restore can be performed on running clusters (HiveMQ 4.9.0+). HiveMQ automatically resolves data
+conflicts during live restore operations.
 
 ### Volume Management Examples
 
 #### List Volumes (Fast Mode)
+
 ```bash
 kubectl broker volumes list
 ```
+
 Output:
+
 ```
 Using namespace: production-hivemq (from kubeconfig context)
 
@@ -362,10 +392,13 @@ Summary: 0 released PVs, 0 orphaned PVCs, 2 bound volumes
 ```
 
 #### List Volumes (Detailed Mode with Usage)
+
 ```bash
 kubectl broker volumes list --detailed
 ```
+
 Output:
+
 ```
 Using namespace: production-hivemq (from kubeconfig context)
 
@@ -378,10 +411,13 @@ Summary: 0 released PVs, 0 orphaned PVCs, 2 bound volumes
 ```
 
 #### Volume Cleanup (Dry Run)
+
 ```bash
 kubectl broker volumes cleanup --dry-run --older-than 7d
 ```
+
 Output:
+
 ```
 Using namespace: production-hivemq (from kubeconfig context)
 
@@ -394,10 +430,13 @@ Use --confirm to proceed with deletion.
 ```
 
 #### Volume Discovery
+
 ```bash
 kubectl broker volumes discover
 ```
+
 Output:
+
 ```
 Discovering volumes across cluster...
 
@@ -418,105 +457,114 @@ Namespaces with orphaned volumes: 3
 
 ### Global Flags
 
-| Flag              | Description                     | Example                     |
-|-------------------|---------------------------------|-----------------------------|
-| `--help, -h`      | Show help information           | `kubectl broker --help`     |
+| Flag         | Description           | Example                 |
+|--------------|-----------------------|-------------------------|
+| `--help, -h` | Show help information | `kubectl broker --help` |
 
 ### Status Subcommand Flags
 
-| Flag              | Description                                     | Required   | Example                               |
-|-------------------|-------------------------------------------------|------------|---------------------------------------|
-| `--discover`      | Discover available broker pods and namespaces   | No         | `kubectl broker status --discover`    |
-| `--pod`           | Name of specific pod to check (single pod mode) | Optional*  | `--pod broker-0`                      |
-| `--statefulset`   | Name of StatefulSet to check (cluster mode)     | Optional*  | `--statefulset broker`                |
-| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
-| `--port, -p`      | Manual port override for health checks          | No         | `--port 9090`                         |
-| `--json`          | Output raw JSON response for external tools      | No         | `kubectl broker status --json`        |
-| `--detailed`      | Show detailed component breakdown + debug info   | No         | `kubectl broker status --detailed`    |
-| `--raw`           | Show unprocessed response                       | No         | `kubectl broker status --raw`         |
-| `--endpoint`      | Specific health endpoint (health/liveness/readiness) | No    | `--endpoint liveness`                 |
+| Flag              | Description                                          | Required   | Example                            |
+|-------------------|------------------------------------------------------|------------|------------------------------------|
+| `--discover`      | Discover available broker pods and namespaces        | No         | `kubectl broker status --discover` |
+| `--pod`           | Name of specific pod to check (single pod mode)      | Optional*  | `--pod broker-0`                   |
+| `--statefulset`   | Name of StatefulSet to check (cluster mode)          | Optional*  | `--statefulset broker`             |
+| `--namespace, -n` | Kubernetes namespace                                 | Optional** | `--namespace production`           |
+| `--port, -p`      | Manual port override for health checks               | No         | `--port 9090`                      |
+| `--json`          | Output raw JSON response for external tools          | No         | `kubectl broker status --json`     |
+| `--detailed`      | Show detailed component breakdown + debug info       | No         | `kubectl broker status --detailed` |
+| `--raw`           | Show unprocessed response                            | No         | `kubectl broker status --raw`      |
+| `--endpoint`      | Specific health endpoint (health/liveness/readiness) | No         | `--endpoint liveness`              |
 
 ### Backup Subcommand Flags
 
 #### Create Backup
-| Flag              | Description                                     | Required   | Example                               |
-|-------------------|-------------------------------------------------|------------|---------------------------------------|
-| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
-| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
-| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
-| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
-| `--destination`   | Move backup to specific directory within pod    | No         | `--destination /opt/hivemq/data/backup` |
+
+| Flag              | Description                                  | Required   | Example                                 |
+|-------------------|----------------------------------------------|------------|-----------------------------------------|
+| `--statefulset`   | Name of StatefulSet containing broker        | Optional*  | `--statefulset broker`                  |
+| `--namespace, -n` | Kubernetes namespace                         | Optional** | `--namespace production`                |
+| `--username`      | Username for HiveMQ authentication           | No         | `--username admin`                      |
+| `--password`      | Password for HiveMQ authentication           | No         | `--password secret`                     |
+| `--destination`   | Move backup to specific directory within pod | No         | `--destination /opt/hivemq/data/backup` |
 
 #### List Backups
-| Flag              | Description                                     | Required   | Example                               |
-|-------------------|-------------------------------------------------|------------|---------------------------------------|
-| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
-| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
-| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
-| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
+
+| Flag              | Description                           | Required   | Example                  |
+|-------------------|---------------------------------------|------------|--------------------------|
+| `--statefulset`   | Name of StatefulSet containing broker | Optional*  | `--statefulset broker`   |
+| `--namespace, -n` | Kubernetes namespace                  | Optional** | `--namespace production` |
+| `--username`      | Username for HiveMQ authentication    | No         | `--username admin`       |
+| `--password`      | Password for HiveMQ authentication    | No         | `--password secret`      |
 
 #### Download Backup
-| Flag              | Description                                     | Required   | Example                               |
-|-------------------|-------------------------------------------------|------------|---------------------------------------|
-| `--id`            | Specific backup ID to download                  | Optional*** | `--id 20250819-143025`               |
-| `--latest`        | Download latest backup                          | Optional*** | `--latest`                           |
-| `--output-dir`    | Local directory to save backup file            | Yes        | `--output-dir ./backups`              |
-| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
-| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
-| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
-| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
+
+| Flag              | Description                           | Required    | Example                  |
+|-------------------|---------------------------------------|-------------|--------------------------|
+| `--id`            | Specific backup ID to download        | Optional*** | `--id 20250819-143025`   |
+| `--latest`        | Download latest backup                | Optional*** | `--latest`               |
+| `--output-dir`    | Local directory to save backup file   | Yes         | `--output-dir ./backups` |
+| `--statefulset`   | Name of StatefulSet containing broker | Optional*   | `--statefulset broker`   |
+| `--namespace, -n` | Kubernetes namespace                  | Optional**  | `--namespace production` |
+| `--username`      | Username for HiveMQ authentication    | No          | `--username admin`       |
+| `--password`      | Password for HiveMQ authentication    | No          | `--password secret`      |
 
 #### Restore Backup
-| Flag              | Description                                     | Required   | Example                               |
-|-------------------|-------------------------------------------------|------------|---------------------------------------|
-| `--id`            | Specific backup ID to restore from             | Optional*** | `--id 20250819-143025`               |
-| `--latest`        | Restore from latest backup                      | Optional*** | `--latest`                           |
-| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
-| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
-| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
-| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
+
+| Flag              | Description                           | Required    | Example                  |
+|-------------------|---------------------------------------|-------------|--------------------------|
+| `--id`            | Specific backup ID to restore from    | Optional*** | `--id 20250819-143025`   |
+| `--latest`        | Restore from latest backup            | Optional*** | `--latest`               |
+| `--statefulset`   | Name of StatefulSet containing broker | Optional*   | `--statefulset broker`   |
+| `--namespace, -n` | Kubernetes namespace                  | Optional**  | `--namespace production` |
+| `--username`      | Username for HiveMQ authentication    | No          | `--username admin`       |
+| `--password`      | Password for HiveMQ authentication    | No          | `--password secret`      |
 
 #### Check Backup Status
-| Flag              | Description                                     | Required   | Example                               |
-|-------------------|-------------------------------------------------|------------|---------------------------------------|
-| `--id`            | Specific backup ID to check                     | Optional*** | `--id 20250819-143025`               |
-| `--latest`        | Check status of latest backup                   | Optional*** | `--latest`                           |
-| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                |
-| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`              |
-| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                    |
-| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                   |
+
+| Flag              | Description                           | Required    | Example                  |
+|-------------------|---------------------------------------|-------------|--------------------------|
+| `--id`            | Specific backup ID to check           | Optional*** | `--id 20250819-143025`   |
+| `--latest`        | Check status of latest backup         | Optional*** | `--latest`               |
+| `--statefulset`   | Name of StatefulSet containing broker | Optional*   | `--statefulset broker`   |
+| `--namespace, -n` | Kubernetes namespace                  | Optional**  | `--namespace production` |
+| `--username`      | Username for HiveMQ authentication    | No          | `--username admin`       |
+| `--password`      | Password for HiveMQ authentication    | No          | `--password secret`      |
 
 ### Volumes Subcommand Flags
 
 #### List Volumes
-| Flag               | Description                                    | Required   | Example                               |
-|--------------------|------------------------------------------------|------------|---------------------------------------|
-| `--namespace, -n`  | Kubernetes namespace                           | Optional** | `--namespace production`              |
-| `--all-namespaces` | List volumes across all namespaces            | No         | `--all-namespaces`                    |
-| `--detailed`       | Show detailed usage information (slower)       | No         | `--detailed`                          |
-| `--older-than`     | Show volumes older than specified duration     | No         | `--older-than 30d`                    |
-| `--min-size`       | Show volumes larger than specified size        | No         | `--min-size 1Gi`                      |
-| `--released`       | Show only released persistent volumes          | No         | `--released`                          |
-| `--orphaned`       | Show only orphaned PVCs (without pods)        | No         | `--orphaned`                          |
-| `--all`            | Show all volumes including bound ones          | No         | `--all`                               |
+
+| Flag               | Description                                | Required   | Example                  |
+|--------------------|--------------------------------------------|------------|--------------------------|
+| `--namespace, -n`  | Kubernetes namespace                       | Optional** | `--namespace production` |
+| `--all-namespaces` | List volumes across all namespaces         | No         | `--all-namespaces`       |
+| `--detailed`       | Show detailed usage information (slower)   | No         | `--detailed`             |
+| `--older-than`     | Show volumes older than specified duration | No         | `--older-than 30d`       |
+| `--min-size`       | Show volumes larger than specified size    | No         | `--min-size 1Gi`         |
+| `--released`       | Show only released persistent volumes      | No         | `--released`             |
+| `--orphaned`       | Show only orphaned PVCs (without pods)     | No         | `--orphaned`             |
+| `--all`            | Show all volumes including bound ones      | No         | `--all`                  |
 
 #### Cleanup Volumes
-| Flag               | Description                                    | Required   | Example                               |
-|--------------------|------------------------------------------------|------------|---------------------------------------|
-| `--namespace, -n`  | Kubernetes namespace                           | Optional** | `--namespace production`              |
-| `--all-namespaces` | Clean volumes across all namespaces           | No         | `--all-namespaces`                    |
-| `--older-than`     | Only delete volumes older than specified       | No         | `--older-than 30d`                    |
-| `--min-size`       | Only delete volumes larger than specified size | No         | `--min-size 1Gi`                      |
-| `--dry-run`        | Preview what would be deleted                  | Optional**** | `--dry-run`                          |
-| `--confirm`        | Confirm deletion (required for actual deletion) | Optional**** | `--confirm`                         |
-| `--force`          | Skip confirmation prompts (dangerous!)        | No         | `--force`                             |
+
+| Flag               | Description                                     | Required     | Example                  |
+|--------------------|-------------------------------------------------|--------------|--------------------------|
+| `--namespace, -n`  | Kubernetes namespace                            | Optional**   | `--namespace production` |
+| `--all-namespaces` | Clean volumes across all namespaces             | No           | `--all-namespaces`       |
+| `--older-than`     | Only delete volumes older than specified        | No           | `--older-than 30d`       |
+| `--min-size`       | Only delete volumes larger than specified size  | No           | `--min-size 1Gi`         |
+| `--dry-run`        | Preview what would be deleted                   | Optional**** | `--dry-run`              |
+| `--confirm`        | Confirm deletion (required for actual deletion) | Optional**** | `--confirm`              |
+| `--force`          | Skip confirmation prompts (dangerous!)          | No           | `--force`                |
 
 #### Discover Volumes
-| Flag               | Description                                    | Required   | Example                               |
-|--------------------|------------------------------------------------|------------|---------------------------------------|
-| None               | Operates cluster-wide by default              | N/A        | `kubectl broker volumes discover`     |
+
+| Flag | Description                      | Required | Example                           |
+|------|----------------------------------|----------|-----------------------------------|
+| None | Operates cluster-wide by default | N/A      | `kubectl broker volumes discover` |
 
 ### Notes
+
 *If not specified, defaults to `broker`  
 **Defaults to current kubectl context namespace  
 ***Either `--id` or `--latest` must be specified  
@@ -525,12 +573,14 @@ Namespaces with orphaned volumes: 3
 ## Architecture
 
 kubectl-broker is designed specifically for HiveMQ broker clusters where:
+
 - Brokers run as StatefulSets in Kubernetes
 - Each pod exposes a health API endpoint (typically on port 9090 named "health")
 - Health checks return JSON status information about cluster state, extensions, and MQTT listeners
 - Multiple broker instances need to be checked individually for complete cluster health status
 
 The tool uses:
+
 - **Native Kubernetes Integration**: `k8s.io/client-go` library for robust API access
 - **Concurrent Processing**: Goroutines with dynamic port allocation for parallel health checks
 - **Port Forwarding**: Automated port-forwarding to bypass network policies
@@ -539,6 +589,7 @@ The tool uses:
 ## Troubleshooting
 
 ### Plugin Not Found
+
 ```bash
 # Check if binary is in PATH
 which kubectl-broker
@@ -551,6 +602,7 @@ export PATH="$HOME/.kubectl-broker:$PATH"
 ```
 
 ### Permission Errors
+
 ```bash
 # Check kubeconfig permissions
 kubectl auth can-i list pods --namespace your-namespace
@@ -558,12 +610,15 @@ kubectl auth can-i create pods/portforward --namespace your-namespace
 ```
 
 ### Port Discovery Issues
+
 If automatic port discovery fails, use manual override:
+
 ```bash
 kubectl broker status --statefulset broker --namespace your-namespace --port 9090
 ```
 
 ### Connection Issues
+
 1. Verify pods are running: `kubectl get pods -n your-namespace`
 2. Check pod readiness: `kubectl describe pod broker-0 -n your-namespace`
 3. Test port-forward manually: `kubectl port-forward broker-0 9090:9090 -n your-namespace`
@@ -605,6 +660,7 @@ make uninstall     # Remove installed plugin
 ```
 
 ### Running Tests
+
 ```bash
 make test
 # or
@@ -612,6 +668,7 @@ go test ./...
 ```
 
 ### Project Structure
+
 ```
 kubectl-broker/
 ├── cmd/kubectl-broker/       # Main application with subcommand architecture
