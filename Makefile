@@ -117,12 +117,50 @@ cross-compile:
 	GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o dist/kubectl-broker-windows-amd64.exe ./cmd/kubectl-broker
 	@echo "Cross-compilation complete. Binaries in dist/"
 
-# Run Go tests
+# Run all tests
+.PHONY: test-all
+test-all: test-unit test-integration
+	@echo "All tests completed"
+
+# Run unit tests
+.PHONY: test-unit
+test-unit:
+	@echo "Running unit tests..."
+	go test -short ./pkg/... ./testutils/...
+	@echo "Unit tests passed"
+
+# Run integration tests
+.PHONY: test-integration
+test-integration:
+	@echo "Running integration tests..."
+	go test -run Integration ./cmd/...
+	@echo "Integration tests passed"
+
+# Run tests with coverage
+.PHONY: test-coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Run tests with race detector
+.PHONY: test-race
+test-race:
+	@echo "Running tests with race detector..."
+	go test -race ./...
+	@echo "Race tests passed"
+
+# Run benchmarks
+.PHONY: test-bench
+test-bench:
+	@echo "Running benchmarks..."
+	go test -bench=. ./...
+	@echo "Benchmarks completed"
+
+# Run Go tests (legacy alias)
 .PHONY: test-go
-test-go:
-	@echo "Running Go tests..."
-	go test ./...
-	@echo "All tests passed"
+test-go: test-unit
 
 # Format Go code
 .PHONY: fmt
@@ -140,7 +178,7 @@ vet:
 
 # Run all checks
 .PHONY: check
-check: fmt vet test-go
+check: fmt vet test-unit
 	@echo "All checks passed"
 
 # Show help
@@ -160,8 +198,16 @@ help:
 	@echo "  release       Build optimized release version"
 	@echo "  build-small   Build with maximum size optimization"
 	@echo ""
+	@echo "Testing:"
+	@echo "  test-all      Run all tests (unit + integration)"
+	@echo "  test-unit     Run unit tests only"
+	@echo "  test-integration  Run integration tests only"
+	@echo "  test-coverage Run tests with coverage report"
+	@echo "  test-race     Run tests with race detector"
+	@echo "  test-bench    Run benchmarks"
+	@echo ""
+	@echo "Quality:"
 	@echo "  cross-compile Build for multiple platforms"
-	@echo "  test-go       Run Go tests"
 	@echo "  fmt           Format Go code"
 	@echo "  vet           Run go vet"
 	@echo "  check         Run all code quality checks"
