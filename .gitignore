@@ -31,8 +31,8 @@ go.work.sum
 .idea/
 .vscode/
 
-# binary output
-kubectl-broker
+# binary output  
+/kubectl-broker
 
 # Backup files and test directories
 backups/*.backup
