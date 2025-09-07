@@ -303,7 +303,7 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		return
 	}
 
-	// Display header - different format based on detailed mode
+	// Display header - different format based on the detailed mode
 	if options.ShowDetailed {
 		fmt.Printf("VOLUME NAME                               SIZE     USED     AVAIL    USAGE%%  AGE      STATUS       NAMESPACE\n")
 		fmt.Printf("----------------------------------------  -------  -------  -------  ------  -------  -----------  ---------\n")
@@ -372,7 +372,7 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 		}
 	}
 
-	// Display bound volumes (only if --all flag is used or no specific filter)
+	// Display bound volumes (only if the "-- all" flag is used or no specific filter)
 	if options.ShowAll || (!options.ShowReleased && !options.ShowOrphaned) {
 		for _, volume := range result.BoundVolumes {
 			statusColor := getVolumeStatusColor("BOUND", options.UseColors)

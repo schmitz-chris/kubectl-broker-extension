@@ -350,7 +350,7 @@ func runBackupDownload(cmd *cobra.Command, args []string) error {
 		ShowProgress: true,
 	}
 
-	// Handle latest backup selection
+	// Handle the latest backup selection
 	backupID := downloadBackupID
 	if downloadLatest {
 		backups, err := backup.ListBackups(context.Background(), k8sClient, service, options)
@@ -370,7 +370,7 @@ func runBackupDownload(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("download failed: %w", err)
 	}
 
-	// Get absolute path for display
+	// Get an absolute path for display
 	absPath, err := filepath.Abs(savedPath)
 	if err != nil {
 		absPath = savedPath
@@ -409,7 +409,7 @@ func runBackupStatus(cmd *cobra.Command, args []string) error {
 		Password: backupPassword,
 	}
 
-	// Handle latest backup selection
+	// Handle the latest backup selection
 	backupID := statusBackupID
 	if statusLatest {
 		backupID = "latest" // Special ID handled by GetBackupStatus
@@ -472,7 +472,7 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 		ShowProgress: true,
 	}
 
-	// Handle latest backup selection
+	// Handle the latest backup selection
 	backupID := restoreBackupID
 	if restoreLatest {
 		backupID = "latest" // Special ID handled by RestoreBackup
