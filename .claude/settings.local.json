@@ -85,5 +85,6 @@
       "Bash(PATH=\"$HOME/.kubectl-broker:$PATH\" kubectl broker backup status --id 20250905-130215 --namespace 9141c41b-686e-42d8-8524-9876229d41ce)"
     ],
     "deny": []
-  }
+  },
+  "outputStyle": "default"
 }
