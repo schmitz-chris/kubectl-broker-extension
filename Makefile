@@ -117,24 +117,12 @@ cross-compile:
 	GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o dist/kubectl-broker-windows-amd64.exe ./cmd/kubectl-broker
 	@echo "Cross-compilation complete. Binaries in dist/"
 
-# Run all tests
-.PHONY: test-all
-test-all: test-unit test-integration
-	@echo "All tests completed"
-
 # Run unit tests
 .PHONY: test-unit
 test-unit:
 	@echo "Running unit tests..."
 	go test -short ./pkg/... ./testutils/...
 	@echo "Unit tests passed"
-
-# Run integration tests
-.PHONY: test-integration
-test-integration:
-	@echo "Running integration tests..."
-	go test -run Integration ./cmd/...
-	@echo "Integration tests passed"
 
 # Run tests with coverage
 .PHONY: test-coverage
@@ -151,22 +139,12 @@ test-race:
 	go test -race ./...
 	@echo "Race tests passed"
 
-# Run benchmarks
-.PHONY: test-bench
-test-bench:
-	@echo "Running benchmarks..."
-	go test -bench=. ./...
-	@echo "Benchmarks completed"
-
-# Run Go tests (legacy alias)
-.PHONY: test-go
-test-go: test-unit
 
 # Format Go code
 .PHONY: fmt
 fmt:
 	@echo "Formatting Go code..."
-	go fmt ./...
+	gofmt -s -w $(shell find . -name "*.go" -not -path "./vendor/*")
 	@echo "Code formatted"
 
 # Run Go vet
@@ -199,12 +177,9 @@ help:
 	@echo "  build-small   Build with maximum size optimization"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test-all      Run all tests (unit + integration)"
-	@echo "  test-unit     Run unit tests only"
-	@echo "  test-integration  Run integration tests only"
+	@echo "  test-unit     Run unit tests"
 	@echo "  test-coverage Run tests with coverage report"
 	@echo "  test-race     Run tests with race detector"
-	@echo "  test-bench    Run benchmarks"
 	@echo ""
 	@echo "Quality:"
 	@echo "  cross-compile Build for multiple platforms"
