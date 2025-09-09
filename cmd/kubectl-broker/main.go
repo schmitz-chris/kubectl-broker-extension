@@ -70,42 +70,6 @@ func addGlobalFlags(rootCmd *cobra.Command) {
 	}
 }
 
-// processGlobalConfig processes global flags and environment variables to determine final config
-func processGlobalConfig() GlobalConfig {
-	config := GlobalConfig{
-		OutputFormat: globalFlags.Output,
-	}
-
-	// Determine color settings based on precedence:
-	// --no-color > NO_COLOR > CLICOLOR_FORCE > CI > TTY detection
-
-	// Start with TTY detection
-	colorsEnabled := isTerminal(os.Stdout)
-
-	// Check CI environment (disable colors in CI by default)
-	if os.Getenv("CI") != "" {
-		colorsEnabled = false
-	}
-
-	// Check CLICOLOR_FORCE (enable colors)
-	if os.Getenv("CLICOLOR_FORCE") == "1" {
-		colorsEnabled = true
-	}
-
-	// Check NO_COLOR (disable colors)
-	if os.Getenv("NO_COLOR") != "" {
-		colorsEnabled = false
-	}
-
-	// Final override with --no-color flag
-	if globalFlags.NoColor {
-		colorsEnabled = false
-	}
-
-	config.ColorsEnabled = colorsEnabled
-	return config
-}
-
 // isTerminal checks if the given file is a terminal
 func isTerminal(f *os.File) bool {
 	fileInfo, err := f.Stat()

@@ -227,27 +227,6 @@ func (k *K8sClient) PerformConcurrentHealthChecks(ctx context.Context, pods []*v
 	return k.displayHealthCheckResults(results, options)
 }
 
-// PerformConcurrentHealthChecksLegacy is the original implementation for backward compatibility
-func (k *K8sClient) PerformConcurrentHealthChecksLegacy(ctx context.Context, pods []*v1.Pod, portOverride int32, options health.HealthCheckOptions) error {
-	results := make([]HealthCheckResult, len(pods))
-	var wg sync.WaitGroup
-
-	// Launch a goroutine for each pod
-	for i, pod := range pods {
-		wg.Add(1)
-		go func(index int, p *v1.Pod) {
-			defer wg.Done()
-			results[index] = k.performSinglePodHealthCheck(ctx, p, portOverride, options)
-		}(i, pod)
-	}
-
-	// Wait for all health checks to complete
-	wg.Wait()
-
-	// Display results in tabular format
-	return k.displayHealthCheckResults(results, options)
-}
-
 // performSinglePodHealthCheckWithContext performs a health check on a single pod with better context handling
 func (k *K8sClient) performSinglePodHealthCheckWithContext(ctx context.Context, pod *v1.Pod, portOverride int32, options health.HealthCheckOptions) HealthCheckResult {
 	result := HealthCheckResult{
