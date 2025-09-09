@@ -40,13 +40,13 @@ var globalFlags GlobalFlags
 func main() {
 	// Detect product mode based on invocation name
 	productCtx := detectProductMode()
-	
+
 	// Create root command based on product mode
 	rootCmd := createRootCommand(productCtx)
-	
+
 	// Add global flags
 	addGlobalFlags(rootCmd)
-	
+
 	// Add appropriate subcommands based on mode
 	addSubcommands(rootCmd, productCtx)
 
@@ -60,7 +60,7 @@ func main() {
 func addGlobalFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.NoColor, "no-color", false, "Disable ANSI color output")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.Output, "output", "table", "Output format: table, json, yaml")
-	
+
 	// Add validation for output format
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if globalFlags.Output != "table" && globalFlags.Output != "json" && globalFlags.Output != "yaml" {
@@ -75,33 +75,33 @@ func processGlobalConfig() GlobalConfig {
 	config := GlobalConfig{
 		OutputFormat: globalFlags.Output,
 	}
-	
+
 	// Determine color settings based on precedence:
 	// --no-color > NO_COLOR > CLICOLOR_FORCE > CI > TTY detection
-	
+
 	// Start with TTY detection
 	colorsEnabled := isTerminal(os.Stdout)
-	
+
 	// Check CI environment (disable colors in CI by default)
 	if os.Getenv("CI") != "" {
 		colorsEnabled = false
 	}
-	
+
 	// Check CLICOLOR_FORCE (enable colors)
 	if os.Getenv("CLICOLOR_FORCE") == "1" {
 		colorsEnabled = true
 	}
-	
+
 	// Check NO_COLOR (disable colors)
 	if os.Getenv("NO_COLOR") != "" {
 		colorsEnabled = false
 	}
-	
+
 	// Final override with --no-color flag
 	if globalFlags.NoColor {
 		colorsEnabled = false
 	}
-	
+
 	config.ColorsEnabled = colorsEnabled
 	return config
 }
@@ -112,7 +112,7 @@ func isTerminal(f *os.File) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// Check if it's a character device (terminal)
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
@@ -121,7 +121,7 @@ func isTerminal(f *os.File) bool {
 func detectProductMode() ProductContext {
 	// Get the program name (last component of os.Args[0])
 	progName := filepath.Base(os.Args[0])
-	
+
 	// Check if invoked as kubectl-pulse or contains "pulse"
 	if strings.Contains(progName, "pulse") {
 		return ProductContext{
@@ -129,7 +129,7 @@ func detectProductMode() ProductContext {
 			Name: "kubectl-pulse",
 		}
 	}
-	
+
 	// Default to broker mode
 	return ProductContext{
 		Mode: ModeBroker,
