@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # kubectl-broker Installation Script
-# This script installs kubectl-broker as a kubectl plugin
+# This script installs kubectl-broker and kubectl-pulse as kubectl plugins (dual-plugin setup)
 
 set -e
 
 INSTALL_DIR="$HOME/.kubectl-broker"
 BINARY_NAME="kubectl-broker"
+PULSE_LINK="kubectl-pulse"
 SHELL_RC=""
 
-echo "Installing kubectl-broker as kubectl plugin..."
+echo "Installing kubectl-broker and kubectl-pulse as kubectl plugins..."
 
 # Create installation directory
 mkdir -p "$INSTALL_DIR"
@@ -27,6 +28,11 @@ fi
 
 # Make it executable
 chmod +x "$INSTALL_DIR/$BINARY_NAME"
+
+# Create symlink for kubectl-pulse
+echo "Creating symlink for kubectl-pulse..."
+ln -sf "$BINARY_NAME" "$INSTALL_DIR/$PULSE_LINK"
+echo "Created symlink: $PULSE_LINK -> $BINARY_NAME"
 
 # Detect shell and RC file
 if [ -n "$ZSH_VERSION" ]; then
@@ -66,17 +72,31 @@ else
     exit 1
 fi
 
+if "$INSTALL_DIR/$PULSE_LINK" --help > /dev/null 2>&1; then
+    echo "kubectl-pulse symlink is working"
+else
+    echo "kubectl-pulse symlink test failed"
+    exit 1
+fi
+
 echo ""
 echo "Installation complete!"
 echo ""
 echo "Next steps:"
 echo "1. Restart your terminal or run: source $SHELL_RC"
-echo "2. Verify installation: kubectl plugin list | grep broker"
-echo "3. Test the plugin: kubectl broker --help"
+echo "2. Verify installation: kubectl plugin list | grep -E '(broker|pulse)'"
+echo "3. Test the plugins: kubectl broker --help && kubectl pulse --help"
 echo "4. Discover HiveMQ brokers: kubectl broker status --discover"
+echo "5. Discover HiveMQ Pulse servers: kubectl pulse status --discover"
 echo ""
-echo "Usage examples:"
+echo "Broker usage examples:"
 echo "   kubectl broker status                                       # Uses intelligent defaults"
 echo "   kubectl broker status --discover                            # Find all HiveMQ brokers"
 echo "   kubectl broker status --pod broker-0 --namespace my-namespace"
 echo "   kubectl broker status --statefulset broker --namespace my-namespace"
+echo ""
+echo "Pulse usage examples:"
+echo "   kubectl pulse status                                        # Check Pulse servers"
+echo "   kubectl pulse status --discover                             # Find all Pulse servers"
+echo "   kubectl pulse status --namespace pulse-namespace"
+echo "   kubectl pulse status --endpoint readiness"

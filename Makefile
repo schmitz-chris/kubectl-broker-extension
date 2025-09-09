@@ -35,6 +35,25 @@ install: build
 	@echo "   kubectl plugin list | grep broker"
 	@echo "   kubectl broker --help"
 
+# Install dual-plugin with symlink (standard build)
+.PHONY: install-dual
+install-dual: build
+	@echo "Installing kubectl-broker and kubectl-pulse as dual kubectl plugins..."
+	mkdir -p $(INSTALL_DIR)
+	cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+	ln -sf $(BINARY_NAME) $(INSTALL_DIR)/kubectl-pulse
+	@echo "Installed kubectl-broker to $(INSTALL_DIR)/$(BINARY_NAME)"
+	@echo "Created symlink kubectl-pulse -> $(BINARY_NAME)"
+	@echo ""
+	@echo "To complete installation, add to your PATH:"
+	@echo "   export PATH=\"\$$HOME/.kubectl-broker:\$$PATH\""
+	@echo ""
+	@echo "Test installation:"
+	@echo "   kubectl plugin list | grep -E '(broker|pulse)'"
+	@echo "   kubectl broker --help"
+	@echo "   kubectl pulse --help"
+
 # Install with optimized build (35MB vs 53MB)
 .PHONY: install-small
 install-small: build-small
@@ -50,6 +69,25 @@ install-small: build-small
 	@echo "Test installation:"
 	@echo "   kubectl plugin list | grep broker"
 	@echo "   kubectl broker --help"
+
+# Install dual-plugin with optimized build
+.PHONY: install-dual-small
+install-dual-small: build-small
+	@echo "Installing optimized kubectl-broker and kubectl-pulse as dual kubectl plugins..."
+	mkdir -p $(INSTALL_DIR)
+	cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+	ln -sf $(BINARY_NAME) $(INSTALL_DIR)/kubectl-pulse
+	@echo "Installed optimized kubectl-broker to $(INSTALL_DIR)/$(BINARY_NAME)"
+	@echo "Created symlink kubectl-pulse -> $(BINARY_NAME)"
+	@echo ""
+	@echo "To complete installation, add to your PATH:"
+	@echo "   export PATH=\"\$$HOME/.kubectl-broker:\$$PATH\""
+	@echo ""
+	@echo "Test installation:"
+	@echo "   kubectl plugin list | grep -E '(broker|pulse)'"
+	@echo "   kubectl broker --help"
+	@echo "   kubectl pulse --help"
 
 # Automated installation with PATH setup (uses install.sh)
 .PHONY: install-auto
@@ -67,9 +105,9 @@ clean:
 # Uninstall the plugin
 .PHONY: uninstall
 uninstall:
-	@echo "Uninstalling kubectl-broker..."
+	@echo "Uninstalling kubectl-broker and kubectl-pulse..."
 	rm -rf $(INSTALL_DIR)
-	@echo "Uninstalled kubectl-broker"
+	@echo "Uninstalled kubectl-broker and kubectl-pulse"
 	@echo "Don't forget to remove from your PATH if added manually"
 
 # Test the plugin functionality
@@ -165,16 +203,18 @@ help:
 	@echo "kubectl-broker Build System"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  build         Build the binary"
-	@echo "  install       Install as kubectl plugin (standard build)"
-	@echo "  install-small Install as kubectl plugin (optimized 35MB build)"
-	@echo "  install-auto  Install with automatic PATH setup (uses install.sh)"
-	@echo "  clean         Remove build artifacts"
-	@echo "  uninstall     Remove installed plugin"
-	@echo "  test          Test basic functionality"
-	@echo "  dev           Build with race detector"
-	@echo "  release       Build optimized release version"
-	@echo "  build-small   Build with maximum size optimization"
+	@echo "  build              Build the binary"
+	@echo "  install            Install as kubectl plugin (standard build)"
+	@echo "  install-dual       Install as dual kubectl plugins with symlink (standard build)"
+	@echo "  install-small      Install as kubectl plugin (optimized 35MB build)"
+	@echo "  install-dual-small Install as dual kubectl plugins with symlink (optimized build)"
+	@echo "  install-auto       Install with automatic PATH setup (uses install.sh)"
+	@echo "  clean              Remove build artifacts"
+	@echo "  uninstall          Remove installed plugins"
+	@echo "  test               Test basic functionality"
+	@echo "  dev                Build with race detector"
+	@echo "  release            Build optimized release version"
+	@echo "  build-small        Build with maximum size optimization"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test-unit     Run unit tests"
@@ -189,5 +229,6 @@ help:
 	@echo "  help          Show this help"
 	@echo ""
 	@echo "Quick start:"
-	@echo "  make install-auto   # Build and install with PATH setup"
-	@echo "  kubectl broker --help  # Test installation"
+	@echo "  make install-dual-small # Build and install both kubectl-broker and kubectl-pulse"
+	@echo "  kubectl broker --help   # Test broker installation"
+	@echo "  kubectl pulse --help    # Test pulse installation"

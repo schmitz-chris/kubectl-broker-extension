@@ -1,0 +1,170 @@
+{
+  "status": "DEGRADED",
+  "components": {
+    "cluster": {
+      "status": "DOWN",
+      "details": {
+        "cluster-id": "owU2h",
+        "cluster-nodes": [
+          "EPLiy"
+        ],
+        "cluster-size": 1,
+        "is-leave-replication-in-progress": true,
+        "is-merge-in-progress": false,
+        "node-id": "EPLiy",
+        "node-state": "RUNNING"
+      }
+    },
+    "control-center": {
+      "status": "UP",
+      "details": {
+        "default-login-mechanism-enabled": true,
+        "enabled": true,
+        "max-session-idle-time": 14400
+      },
+      "components": {
+        "control-center-http-listener-8080": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-connector-failed": false,
+            "is-connector-open": true,
+            "is-connector-running": true,
+            "port": 8080
+          }
+        }
+      }
+    },
+    "extensions": {
+      "status": "DEGRADED",
+      "components": {
+        "hivemq-enterprise-security-extension": {
+          "status": "DOWN",
+          "details": {
+            "author": "HiveMQ",
+            "enabled": true,
+            "name": "HiveMQ Enterprise Security Extension",
+            "priority": 1000,
+            "start-mandatory": true,
+            "start-priority": 1000,
+            "startedAt": 0,
+            "version": "4.42.0"
+          },
+          "components": {
+            "application": {
+              "status": "DOWN",
+              "components": {
+                "configuration": {
+                  "status": "DOWN",
+                  "details": {
+                    "realms-count": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "hivemq-prometheus-extension": {
+          "status": "UP",
+          "details": {
+            "author": "HiveMQ",
+            "enabled": true,
+            "name": "Prometheus Monitoring Extension",
+            "priority": 1000,
+            "start-mandatory": false,
+            "start-priority": 1000,
+            "startedAt": 1757028369053,
+            "version": "4.0.12"
+          },
+          "components": {
+            "internals": {
+              "status": "UP",
+              "components": {
+                "entrypoint": {
+                  "status": "UP",
+                  "details": {
+                    "started-at": 1757028369053
+                  }
+                },
+                "license": {
+                  "status": "UP",
+                  "details": {
+                    "is-enterprise": false
+                  }
+                },
+                "services": {
+                  "status": "UP"
+                },
+                "shutdown": {
+                  "status": "UP",
+                  "details": {
+                    "stopped-at": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "info": {
+      "status": "UP",
+      "details": {
+        "cpu-count": 4,
+        "log-level": "ERROR",
+        "started-at": 1757028360568,
+        "version": "4.42.0"
+      }
+    },
+    "liveness-state": {
+      "status": "UP"
+    },
+    "mqtt": {
+      "status": "DEGRADED",
+      "components": {
+        "mqtts-pub-0": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": true,
+            "port": 8883,
+            "type": "TCP Listener with TLS"
+          }
+        },
+        "mqtts-pub-1": {
+          "status": "DOWN",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": false,
+            "port": 8884,
+            "type": "TCP Listener with TLS"
+          }
+        }
+      }
+    },
+    "readiness-state": {
+      "status": "UP"
+    },
+    "rest-api": {
+      "status": "UP",
+      "details": {
+        "authentication-enabled": false,
+        "enabled": true
+      },
+      "components": {
+        "http-listener-8081": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-connector-failed": false,
+            "is-connector-open": true,
+            "is-connector-running": true,
+            "port": 8081
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "status": "UP",
+  "components": {
+    "cluster": {
+      "status": "UP",
+      "details": {
+        "cluster-id": "owU2h",
+        "cluster-nodes": [
+          "EPLiy",
+          "t5CBl"
+        ],
+        "cluster-size": 2,
+        "is-leave-replication-in-progress": false,
+        "is-merge-in-progress": false,
+        "node-id": "EPLiy",
+        "node-state": "RUNNING"
+      }
+    },
+    "control-center": {
+      "status": "UP",
+      "details": {
+        "default-login-mechanism-enabled": true,
+        "enabled": true,
+        "max-session-idle-time": 14400
+      },
+      "components": {
+        "control-center-http-listener-8080": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-connector-failed": false,
+            "is-connector-open": true,
+            "is-connector-running": true,
+            "port": 8080
+          }
+        }
+      }
+    },
+    "extensions": {
+      "status": "UP",
+      "components": {
+        "hivemq-cloud-metering-extension": {
+          "status": "UP",
+          "details": {
+            "author": "HiveMQ",
+            "enabled": true,
+            "name": "HiveMQ Cloud Metering Extension",
+            "priority": 1000,
+            "start-mandatory": false,
+            "start-priority": 1000,
+            "startedAt": 1757028368861,
+            "version": "03e13fb"
+          },
+          "components": {
+            "internals": {
+              "status": "UP",
+              "components": {
+                "entrypoint": {
+                  "status": "UP",
+                  "details": {
+                    "started-at": 1757028368861
+                  }
+                },
+                "license": {
+                  "status": "UP",
+                  "details": {
+                    "is-enterprise": true,
+                    "is-trial": false,
+                    "is-trial-expired": false
+                  }
+                },
+                "services": {
+                  "status": "UP"
+                },
+                "shutdown": {
+                  "status": "UP",
+                  "details": {
+                    "stopped-at": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "hivemq-dns-cluster-discovery": {
+          "status": "UP",
+          "details": {
+            "author": "HiveMQ",
+            "enabled": true,
+            "name": "DNS Cluster Discovery Extension",
+            "priority": 1000,
+            "start-mandatory": false,
+            "start-priority": 10000,
+            "startedAt": 1757028368373,
+            "version": "4.3.2"
+          },
+          "components": {
+            "internals": {
+              "status": "UP",
+              "components": {
+                "entrypoint": {
+                  "status": "UP",
+                  "details": {
+                    "started-at": 1757028368373
+                  }
+                },
+                "license": {
+                  "status": "UP",
+                  "details": {
+                    "is-enterprise": false
+                  }
+                },
+                "services": {
+                  "status": "UP"
+                },
+                "shutdown": {
+                  "status": "UP",
+                  "details": {
+                    "stopped-at": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "hivemq-enterprise-security-extension": {
+          "status": "UP",
+          "details": {
+            "author": "HiveMQ",
+            "enabled": true,
+            "name": "HiveMQ Enterprise Security Extension",
+            "priority": 1000,
+            "start-mandatory": true,
+            "start-priority": 1000,
+            "startedAt": 1757028368858,
+            "version": "4.42.0"
+          },
+          "components": {
+            "application": {
+              "status": "UP",
+              "components": {
+                "configuration": {
+                  "status": "UP",
+                  "details": {
+                    "realms-count": 2
+                  }
+                }
+              }
+            },
+            "internals": {
+              "status": "UP",
+              "components": {
+                "entrypoint": {
+                  "status": "UP",
+                  "details": {
+                    "started-at": 1757028368858
+                  }
+                },
+                "license": {
+                  "status": "UP",
+                  "details": {
+                    "is-enterprise": true,
+                    "is-trial": false,
+                    "is-trial-expired": false
+                  }
+                },
+                "services": {
+                  "status": "UP"
+                },
+                "shutdown": {
+                  "status": "UP",
+                  "details": {
+                    "stopped-at": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "hivemq-prometheus-extension": {
+          "status": "UP",
+          "details": {
+            "author": "HiveMQ",
+            "enabled": true,
+            "name": "Prometheus Monitoring Extension",
+            "priority": 1000,
+            "start-mandatory": false,
+            "start-priority": 1000,
+            "startedAt": 1757028369053,
+            "version": "4.0.12"
+          },
+          "components": {
+            "internals": {
+              "status": "UP",
+              "components": {
+                "entrypoint": {
+                  "status": "UP",
+                  "details": {
+                    "started-at": 1757028369053
+                  }
+                },
+                "license": {
+                  "status": "UP",
+                  "details": {
+                    "is-enterprise": false
+                  }
+                },
+                "services": {
+                  "status": "UP"
+                },
+                "shutdown": {
+                  "status": "UP",
+                  "details": {
+                    "stopped-at": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "info": {
+      "status": "UP",
+      "details": {
+        "cpu-count": 4,
+        "log-level": "INFO",
+        "started-at": 1757028360568,
+        "version": "4.42.0"
+      }
+    },
+    "liveness-state": {
+      "status": "UP"
+    },
+    "mqtt": {
+      "status": "UP",
+      "components": {
+        "mqtts-probe": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": true,
+            "port": 1337,
+            "type": "TCP Listener with TLS"
+          }
+        },
+        "mqtts-pub-0": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": true,
+            "port": 8883,
+            "type": "TCP Listener with TLS"
+          }
+        },
+        "mqtts-pub-1": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": true,
+            "port": 8884,
+            "type": "TCP Listener with TLS"
+          }
+        },
+        "ws-pub-0": {
+          "status": "UP",
+          "details": {
+            "allow-extensions": true,
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": true,
+            "path": "/mqtt",
+            "port": 5883,
+            "sub-protocols": [
+              "mqttv3.1",
+              "mqtt"
+            ],
+            "type": "Websocket Listener with TLS"
+          }
+        },
+        "ws-pub-1": {
+          "status": "UP",
+          "details": {
+            "allow-extensions": true,
+            "bind-address": "0.0.0.0",
+            "is-proxy-protocol-supported": true,
+            "is-running": true,
+            "path": "/mqtt",
+            "port": 5884,
+            "sub-protocols": [
+              "mqttv3.1",
+              "mqtt"
+            ],
+            "type": "Websocket Listener with TLS"
+          }
+        }
+      }
+    },
+    "readiness-state": {
+      "status": "UP"
+    },
+    "rest-api": {
+      "status": "UP",
+      "details": {
+        "authentication-enabled": false,
+        "enabled": true
+      },
+      "components": {
+        "http-listener-8081": {
+          "status": "UP",
+          "details": {
+            "bind-address": "0.0.0.0",
+            "is-connector-failed": false,
+            "is-connector-open": true,
+            "is-connector-running": true,
+            "port": 8081
+          }
+        }
+      }
+    }
+  }
+}
