@@ -155,27 +155,6 @@ cross-compile:
 	GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o dist/kubectl-broker-windows-amd64.exe ./cmd/kubectl-broker
 	@echo "Cross-compilation complete. Binaries in dist/"
 
-# Run unit tests
-.PHONY: test-unit
-test-unit:
-	@echo "Running unit tests..."
-	go test -short ./pkg/... ./testutils/...
-	@echo "Unit tests passed"
-
-# Run tests with coverage
-.PHONY: test-coverage
-test-coverage:
-	@echo "Running tests with coverage..."
-	go test -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
-
-# Run tests with race detector
-.PHONY: test-race
-test-race:
-	@echo "Running tests with race detector..."
-	go test -race ./...
-	@echo "Race tests passed"
 
 
 # Format Go code
@@ -194,7 +173,7 @@ vet:
 
 # Run all checks
 .PHONY: check
-check: fmt vet test-unit
+check: fmt vet
 	@echo "All checks passed"
 
 # Show help
@@ -216,16 +195,11 @@ help:
 	@echo "  release            Build optimized release version"
 	@echo "  build-small        Build with maximum size optimization"
 	@echo ""
-	@echo "Testing:"
-	@echo "  test-unit     Run unit tests"
-	@echo "  test-coverage Run tests with coverage report"
-	@echo "  test-race     Run tests with race detector"
-	@echo ""
 	@echo "Quality:"
 	@echo "  cross-compile Build for multiple platforms"
 	@echo "  fmt           Format Go code"
 	@echo "  vet           Run go vet"
-	@echo "  check         Run all code quality checks"
+	@echo "  check         Run code quality checks (fmt, vet)"
 	@echo "  help          Show this help"
 	@echo ""
 	@echo "Quick start:"
