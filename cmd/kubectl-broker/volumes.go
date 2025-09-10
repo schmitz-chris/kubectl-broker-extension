@@ -135,10 +135,10 @@ func applyVolumesDefaults() error {
 		// Get current namespace from kubeconfig context
 		namespace, err := pkg.GetDefaultNamespace()
 		if err != nil {
-			return fmt.Errorf("failed to get current namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>\n- Use --all-namespaces for cluster-wide operations", err)
+			return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>\n- Use --all-namespaces for cluster-wide operations", err)
 		}
 		volumesNamespace = namespace
-		fmt.Printf("Using namespace: %s (from kubeconfig context)\n", volumesNamespace)
+		fmt.Printf("Using namespace from context: %s\n", volumesNamespace)
 	}
 
 	return nil
@@ -191,7 +191,7 @@ func runVolumesCleanup(cmd *cobra.Command, args []string) error {
 
 	// Validate flags
 	if !volumesDryRun && !volumesConfirm && !volumesForce {
-		return fmt.Errorf("cleanup requires either --dry-run, --confirm, or --force flag")
+		return fmt.Errorf("cleanup requires either --dry-run, --confirm, or --force flag\n\nPlease either:\n- Preview changes: --dry-run\n- Confirm deletion: --confirm\n- Force deletion: --force")
 	}
 
 	if volumesConfirm && volumesForce {

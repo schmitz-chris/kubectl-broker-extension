@@ -187,15 +187,15 @@ func applyBackupDefaults() error {
 		// Get current namespace from kubeconfig context
 		namespace, err := pkg.GetDefaultNamespace()
 		if err != nil {
-			return fmt.Errorf("failed to get current namespace: %w", err)
+			return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>", err)
 		}
 		backupNamespace = namespace
-		fmt.Printf("Using namespace: %s (from kubeconfig context)\n", backupNamespace)
+		fmt.Printf("Using namespace from context: %s\n", backupNamespace)
 	}
 
 	if backupStatefulSetName == "" {
 		backupStatefulSetName = "broker"
-		fmt.Printf("Using StatefulSet: %s (default)\n", backupStatefulSetName)
+		fmt.Printf("Using default StatefulSet: %s\n", backupStatefulSetName)
 	}
 
 	return nil
@@ -326,7 +326,7 @@ func runBackupDownload(cmd *cobra.Command, args []string) error {
 	}
 
 	if downloadBackupID == "" && !downloadLatest {
-		return fmt.Errorf("either --id or --latest must be specified")
+		return fmt.Errorf("either --id or --latest must be specified\n\nPlease either:\n- Specify a backup ID: --id <backup-id>\n- Use latest backup: --latest")
 	}
 
 	// Initialize Kubernetes client
@@ -388,7 +388,7 @@ func runBackupStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if statusBackupID == "" && !statusLatest {
-		return fmt.Errorf("either --id or --latest must be specified")
+		return fmt.Errorf("either --id or --latest must be specified\n\nPlease either:\n- Specify a backup ID: --id <backup-id>\n- Use latest backup: --latest")
 	}
 
 	// Initialize Kubernetes client
@@ -446,7 +446,7 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	if restoreBackupID == "" && !restoreLatest {
-		return fmt.Errorf("either --id or --latest must be specified")
+		return fmt.Errorf("either --id or --latest must be specified\n\nPlease either:\n- Specify a backup ID: --id <backup-id>\n- Use latest backup: --latest")
 	}
 
 	fmt.Printf("Restoring backup for StatefulSet %s in namespace %s\n", backupStatefulSetName, backupNamespace)

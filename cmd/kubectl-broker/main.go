@@ -61,13 +61,9 @@ func addGlobalFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.NoColor, "no-color", false, "Disable ANSI color output")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.Output, "output", "table", "Output format: table, json, yaml")
 
-	// Add validation for output format
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if globalFlags.Output != "table" && globalFlags.Output != "json" && globalFlags.Output != "yaml" {
-			return fmt.Errorf("invalid output format '%s'. Must be one of: table, json, yaml", globalFlags.Output)
-		}
-		return nil
-	}
+	// Note: Output format validation is handled by individual commands
+	// that use the global --output flag. Commands with their own output
+	// flags (like --json, --raw) handle their own validation.
 }
 
 // isTerminal checks if the given file is a terminal

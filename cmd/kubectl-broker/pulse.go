@@ -86,12 +86,13 @@ Examples:
 			return fmt.Errorf("cannot use both --json and --raw flags together")
 		}
 
-		// Validate endpoint
+		// Validate endpoint (pulse-specific)
 		if pulseEndpoint != "liveness" && pulseEndpoint != "readiness" {
 			return fmt.Errorf("endpoint must be either 'liveness' or 'readiness'")
 		}
 
 		if !pulseDiscover {
+			// Apply intelligent defaults
 			if pulseNamespace == "" {
 				// Default to namespace from kubectl context
 				defaultNamespace, err := pkg.GetDefaultNamespace()

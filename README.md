@@ -93,6 +93,9 @@ kubectl broker backup [subcommand] [options]
 
 # Volume management
 kubectl broker volumes [subcommand] [options]
+
+# HiveMQ Pulse server diagnostics
+kubectl broker pulse status [options]
 ```
 
 ### Health Diagnostics (`status` subcommand)
@@ -151,6 +154,30 @@ kubectl broker backup restore --id abc123 --username admin --password secret
 
 # Move backup to different directory within pod
 kubectl broker backup create --destination /opt/hivemq/data/backup
+```
+
+### HiveMQ Pulse Server Diagnostics (`pulse status` subcommand)
+
+```bash
+# Check Pulse server status with intelligent defaults
+kubectl broker pulse status
+
+# Discovery mode - find all Pulse servers
+kubectl broker pulse status --discover
+
+# Check specific namespace
+kubectl broker pulse status --namespace pulse
+
+# Check readiness endpoint instead of liveness (default)
+kubectl broker pulse status --endpoint readiness
+
+# Enhanced output formats
+kubectl broker pulse status --json                    # Raw JSON for external tools
+kubectl broker pulse status --detailed                # Component breakdown + debug info
+kubectl broker pulse status --raw                     # Unprocessed response
+
+# With custom port
+kubectl broker pulse status --port 8080 --namespace pulse
 ```
 
 ### Volume Management (`volumes` subcommand)
@@ -457,9 +484,11 @@ Namespaces with orphaned volumes: 3
 
 ### Global Flags
 
-| Flag         | Description           | Example                 |
-|--------------|-----------------------|-------------------------|
-| `--help, -h` | Show help information | `kubectl broker --help` |
+| Flag              | Description                                  | Example                 |
+|-------------------|----------------------------------------------|-------------------------|
+| `--help, -h`      | Show help information                        | `kubectl broker --help` |
+| `--no-color`      | Disable ANSI color output                   | `kubectl broker --no-color` |
+| `--output string` | Output format: table, json, yaml (default table) | `kubectl broker --output json` |
 
 ### Status Subcommand Flags
 
@@ -474,6 +503,18 @@ Namespaces with orphaned volumes: 3
 | `--detailed`      | Show detailed component breakdown + debug info       | No         | `kubectl broker status --detailed` |
 | `--raw`           | Show unprocessed response                            | No         | `kubectl broker status --raw`      |
 | `--endpoint`      | Specific health endpoint (health/liveness/readiness) | No         | `--endpoint liveness`              |
+
+### Pulse Status Subcommand Flags
+
+| Flag              | Description                                          | Required   | Example                            |
+|-------------------|------------------------------------------------------|------------|------------------------------------|
+| `--discover`      | Discover available Pulse server pods and namespaces  | No         | `kubectl broker pulse status --discover` |
+| `--namespace, -n` | Kubernetes namespace                                 | Optional** | `--namespace production`           |
+| `--port, -p`      | Manual port override for health checks               | No         | `--port 8080`                      |
+| `--json`          | Output raw JSON response for external tools          | No         | `kubectl broker pulse status --json`     |
+| `--detailed`      | Show detailed component breakdown + debug info       | No         | `kubectl broker pulse status --detailed` |
+| `--raw`           | Show unprocessed response                            | No         | `kubectl broker pulse status --raw`      |
+| `--endpoint`      | Specific health endpoint (liveness/readiness)        | No         | `--endpoint readiness`             |
 
 ### Backup Subcommand Flags
 
