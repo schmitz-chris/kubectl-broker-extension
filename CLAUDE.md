@@ -11,12 +11,15 @@ architecture, and complete backup management functionality.
 
 ## Project Structure
 
-- `cmd/kubectl-broker/main.go` - Root command with subcommand architecture (Phase 6)
+- `cmd/kubectl-broker/main.go` - Root command with subcommand architecture and product mode detection
 - `cmd/kubectl-broker/status.go` - Health diagnostics subcommand with intelligent defaults
-- `cmd/kubectl-broker/backup.go` - Complete backup operations with subcommands (Phase 7)
+- `cmd/kubectl-broker/pulse.go` - HiveMQ Pulse server health diagnostics with consistent validation
+- `cmd/kubectl-broker/backup.go` - Complete backup operations with subcommands and standardized error handling
+- `cmd/kubectl-broker/volumes.go` - Volume management and cleanup operations
 - `pkg/` - Core functionality packages (k8s client, port-forwarding, concurrent health checks)
 - `pkg/health/` - HiveMQ Health API parsing and analysis (Phase 5)
 - `pkg/backup/` - HiveMQ backup operations and REST API client (Phase 7)
+- `pkg/volumes/` - Volume discovery, analysis, and cleanup operations
 - `PLAN.md` - Implementation roadmap (all phases completed including Phase 7)
 - `OBJECTS.md` - Example Kubernetes objects and HiveMQ health API responses
 - `Makefile` - Professional build system with size optimization targets
@@ -61,20 +64,25 @@ The tool is used as a kubectl plugin with subcommand architecture:
 # Show available commands
 kubectl broker
 
-# Health diagnostics (Phase 6 subcommand structure)
+# Health diagnostics (consistent across broker and pulse)
 kubectl broker status                                    # Simple usage with intelligent defaults
 kubectl broker status --discover                         # Discovery mode
 kubectl broker status --statefulset broker --namespace production
 kubectl broker status --pod broker-0 --namespace production
 
-# Enhanced health API analysis (Phase 5) with color-coded status indicators
+# HiveMQ Pulse server diagnostics (consistent validation patterns)
+kubectl broker pulse status                              # Simple usage with intelligent defaults
+kubectl broker pulse status --discover                   # Discovery mode for Pulse servers
+kubectl broker pulse status --namespace pulse --endpoint readiness
+
+# Enhanced health API analysis with color-coded status indicators
 kubectl broker status --json                             # Raw JSON output for external tools (colors disabled)
 kubectl broker status --detailed                         # Detailed component breakdown + debug info (colors enabled)
 kubectl broker status --endpoint liveness                # Specific health endpoint with colored status
 kubectl broker status --statefulset broker --raw         # Unprocessed response (colors disabled)
 kubectl broker status --pod broker-0 --endpoint readiness # Readiness check with colored indicators
 
-# Backup management (Phase 7 complete functionality)
+# Backup management (standardized error handling and consistent UX)
 kubectl broker backup create --statefulset broker --namespace production  # Create new backup
 kubectl broker backup list --statefulset broker --namespace production     # List all backups
 kubectl broker backup download --id abc123 --output-dir ./backups          # Download specific backup
@@ -82,9 +90,15 @@ kubectl broker backup download --latest --output-dir ./backups             # Dow
 kubectl broker backup status --id abc123                                   # Check backup status
 kubectl broker backup status --latest                                      # Check latest backup status
 
+# Volume management (consistent namespace handling and error messages)
+kubectl broker volumes list                                                # List volumes in current namespace
+kubectl broker volumes list --all-namespaces --detailed                    # Cluster-wide with usage data
+kubectl broker volumes cleanup --dry-run                                   # Preview cleanup operations
+kubectl broker volumes cleanup --confirm --older-than 30d                  # Clean old volumes
+
 # Backup directory moving (Phase 8 enhancement) - moves within pod filesystem
-kubectl broker backup create --destination /opt/hivemq/data/backup  # Move to data directory
-kubectl broker backup create --destination /tmp --namespace production  # Move to tmp directory
+kubectl broker backup create --destination /opt/hivemq/data/backup         # Move to data directory
+kubectl broker backup create --destination /tmp --namespace production     # Move to tmp directory
 
 # With authentication (optional)
 kubectl broker backup create --username admin --password secret
@@ -137,10 +151,12 @@ The tool has completed all planned development phases:
 
 - Extensible CLI structure with parent command and subcommands
 - `status` subcommand containing all health checking functionality
-- `backup` subcommand framework for future backup operations
+- `pulse` subcommand for HiveMQ Pulse server diagnostics with consistent validation patterns
+- `backup` subcommand with complete backup management operations
+- `volumes` subcommand for volume management and cleanup operations
 - Professional command structure following kubectl plugin patterns
 - Maintains backward compatibility through clear command separation
-- Foundation for additional HiveMQ cluster management features
+- Product mode detection for dual broker/pulse operation modes
 
 ### ✅ Phase 7: HiveMQ Backup Management (Completed)
 
@@ -258,7 +274,17 @@ Components:
 
 - **Emojis**: Do not use emojis for CLI output in this application
 
-## Recent Updates (2025-01-06 - 2025-08-06)
+## Recent Updates (2025-01-06 - 2025-09-10)
+
+### Command Consistency Improvements (2025-09-10)
+- **Standardized Error Handling**: All commands now use consistent error message formats with helpful user guidance
+- **Pulse Status Validation**: Aligned pulse status PreRunE validation with broker status patterns for consistency
+- **Backup Command Errors**: Enhanced error messages with actionable suggestions (e.g., "--id or --latest" validation)
+- **Volumes Command Errors**: Improved error formatting and namespace handling consistency across all volume operations
+- **Global Flag Harmonization**: Resolved conflicts between global --output flags and local --json/--raw flags
+- **Documentation Updates**: Added comprehensive pulse status documentation and global flags reference in README.md
+
+## Previous Updates (2025-01-06 - 2025-08-06)
 
 ### Professional CLI Output (2025-01-06)
 - **No Emojis**: All CLI output uses clean, professional text without decorative emojis
@@ -319,3 +345,25 @@ Size: 1.0 KB | Created: 2025-08-06T08:37:55Z
 **Before:** `HTTP 404: {"errors":[{"title":"Resource not found"}]}`
 
 **After:** `backup download not supported: all download endpoints returned 404. This HiveMQ instance (version 4.x) may not have backup download functionality enabled or available. You can create and list backups, but downloading them may not be supported in this configuration.`
+
+## Command Consistency Standards
+
+All commands now follow the same patterns established by `broker status`:
+
+### Error Message Format
+- Use `failed to determine default namespace` (not "get current namespace")
+- Include helpful user guidance with "Please either:" format
+- Provide actionable suggestions with specific flag examples
+- Maintain consistent error structure across all subcommands
+
+### Validation Patterns
+- PreRunE for health commands (status, pulse status)
+- Manual validation functions for management commands (backup, volumes)
+- Consistent flag conflict checking (--json vs --raw)
+- Unified namespace and resource defaulting logic
+
+### User Experience
+- All commands use same namespace detection and error messages
+- Consistent debug output formatting and conditional display
+- Unified approach to intelligent defaults with visual feedback
+- Standardized help text and usage examples
