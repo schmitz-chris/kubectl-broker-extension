@@ -420,18 +420,40 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 
 func displayCleanupResults(result *volumes.CleanupResult, options volumes.CleanupOptions) {
 	if options.DryRun {
-		fmt.Printf("DRY RUN - Would delete:\n")
-	} else {
-		fmt.Printf("Cleanup completed:\n")
+		fmt.Printf("DRY RUN - Cleanup summary:\n")
+		fmt.Printf("- Released PVs eligible: %d\n", result.PlannedReleasedPVs)
+		fmt.Printf("- Orphaned PVCs eligible: %d\n", result.PlannedOrphanedPVCs)
+		fmt.Printf("- Total storage reclaimable: %s\n", formatBytes(result.PlannedReclaimedStorage))
+		fmt.Printf("\nUse --confirm to proceed with deletion.\n")
+		return
 	}
 
-	fmt.Printf("- Released PVs: %d\n", len(result.DeletedPVs))
-	fmt.Printf("- Orphaned PVCs: %d\n", len(result.DeletedPVCs))
+	fmt.Printf("Cleanup completed:\n")
+
+	totalPlanned := result.PlannedReleasedPVs + result.PlannedOrphanedPVCs
+	totalDeleted := result.DeletedReleasedPVs + result.DeletedOrphanedPVCs
+	fmt.Printf("- Planned volumes deleted: %d/%d\n", totalDeleted, totalPlanned)
+	fmt.Printf("- Released PVs deleted: %d/%d\n", result.DeletedReleasedPVs, result.PlannedReleasedPVs)
+	fmt.Printf("- Orphaned PVCs deleted: %d/%d\n", result.DeletedOrphanedPVCs, result.PlannedOrphanedPVCs)
+
+	if result.AssociatedPVsDeleted > 0 {
+		fmt.Printf("- Associated PVs deleted during PVC cleanup: %d\n", result.AssociatedPVsDeleted)
+	}
+
 	fmt.Printf("- Storage reclaimed: %s\n", formatBytes(result.TotalReclaimedStorage))
 
-	if options.DryRun {
-		fmt.Printf("\nUse --confirm to proceed with deletion.\n")
+	if len(result.FailedDeletions) > 0 {
+		fmt.Printf("- Failed deletions: %d\n", len(result.FailedDeletions))
+		fmt.Printf("\nFailed deletions:\n")
+		for _, failure := range result.FailedDeletions {
+			if failure.Namespace != "" {
+				fmt.Printf("- %s %s/%s: %v\n", failure.Type, failure.Namespace, failure.Name, failure.Error)
+			} else {
+				fmt.Printf("- %s %s: %v\n", failure.Type, failure.Name, failure.Error)
+			}
+		}
 	}
+
 }
 
 func displayDiscoverySummary(result *volumes.AnalysisResult) {

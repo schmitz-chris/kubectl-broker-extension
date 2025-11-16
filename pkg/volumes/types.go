@@ -130,11 +130,17 @@ type NamespaceVolumeStats struct {
 
 // CleanupResult contains the results of volume cleanup operation
 type CleanupResult struct {
-	DeletedPVs            []string
-	DeletedPVCs           []string
-	FailedDeletions       []CleanupError
-	TotalReclaimedStorage int64
-	DryRunPreview         []CleanupAction
+	DeletedPVs              []string
+	DeletedPVCs             []string
+	FailedDeletions         []CleanupError
+	TotalReclaimedStorage   int64
+	PlannedReclaimedStorage int64
+	DryRunPreview           []CleanupAction
+	PlannedReleasedPVs      int
+	PlannedOrphanedPVCs     int
+	DeletedReleasedPVs      int
+	DeletedOrphanedPVCs     int
+	AssociatedPVsDeleted    int
 }
 
 // CleanupAction represents an action that would be taken during cleanup
