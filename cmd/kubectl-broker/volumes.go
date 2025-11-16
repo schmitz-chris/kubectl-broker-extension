@@ -167,7 +167,7 @@ func runVolumesList(cmd *cobra.Command, args []string) error {
 		ShowOrphaned:  volumesShowOrphaned,
 		ShowAll:       volumesShowAll,
 		ShowDetailed:  volumesShowDetailed,
-		UseColors:     true,
+		UseColors:     colorOutputEnabled(),
 	}
 
 	// Perform analysis
@@ -178,9 +178,7 @@ func runVolumesList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Display results
-	displayVolumesList(result, options)
-
-	return nil
+	return displayVolumesList(result, options)
 }
 
 func runVolumesCleanup(cmd *cobra.Command, args []string) error {

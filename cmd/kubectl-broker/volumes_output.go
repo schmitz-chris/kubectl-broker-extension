@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -8,9 +9,22 @@ import (
 
 	"github.com/fatih/color"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/yaml"
 )
 
-func displayVolumesList(result *volumes.AnalysisResult, options volumes.AnalysisOptions) {
+func displayVolumesList(result *volumes.AnalysisResult, options volumes.AnalysisOptions) error {
+	switch currentOutputFormat() {
+	case "json":
+		return writeStructuredVolumesOutput(result, options, "json")
+	case "yaml":
+		return writeStructuredVolumesOutput(result, options, "yaml")
+	default:
+		displayVolumesListTable(result, options)
+		return nil
+	}
+}
+
+func displayVolumesListTable(result *volumes.AnalysisResult, options volumes.AnalysisOptions) {
 	totalVolumes := len(result.ReleasedPVs) + len(result.OrphanedPVCs) + len(result.BoundVolumes)
 
 	if totalVolumes == 0 {
@@ -128,6 +142,109 @@ func displayVolumesList(result *volumes.AnalysisResult, options volumes.Analysis
 	}
 }
 
+func writeStructuredVolumesOutput(result *volumes.AnalysisResult, options volumes.AnalysisOptions, format string) error {
+	payload := buildVolumeListStructuredOutput(result, options)
+
+	var (
+		data []byte
+		err  error
+	)
+
+	switch format {
+	case "yaml":
+		data, err = yaml.Marshal(payload)
+	default:
+		data, err = json.MarshalIndent(payload, "", "  ")
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to render %s output: %w", format, err)
+	}
+
+	fmt.Println(string(data))
+	return nil
+}
+
+func buildVolumeListStructuredOutput(result *volumes.AnalysisResult, options volumes.AnalysisOptions) volumeListStructuredOutput {
+	output := volumeListStructuredOutput{
+		Scope: volumeScope{
+			Namespace:     options.Namespace,
+			AllNamespaces: options.AllNamespaces,
+		},
+		Released:               make([]volumeEntry, 0, len(result.ReleasedPVs)),
+		Orphaned:               make([]volumeEntry, 0, len(result.OrphanedPVCs)),
+		TotalReclaimableBytes:  result.TotalReclaimableStorage,
+		TotalReclaimableString: formatBytes(result.TotalReclaimableStorage),
+		Summary: volumeSummary{
+			Released: len(result.ReleasedPVs),
+			Orphaned: len(result.OrphanedPVCs),
+			Bound:    len(result.BoundVolumes),
+		},
+	}
+
+	if options.AllNamespaces {
+		output.Scope.Namespace = ""
+	}
+
+	for _, pv := range result.ReleasedPVs {
+		sizeQuantity := pv.Spec.Capacity["storage"]
+		entry := volumeEntry{
+			Name:      pv.Name,
+			Status:    "RELEASED",
+			Age:       formatDuration(time.Since(pv.CreationTimestamp.Time).Round(24 * time.Hour)),
+			Size:      formatStorageSize(sizeQuantity),
+			SizeBytes: quantityToBytes(sizeQuantity),
+		}
+		if pv.Spec.ClaimRef != nil {
+			entry.Namespace = pv.Spec.ClaimRef.Namespace
+		}
+		output.Released = append(output.Released, entry)
+	}
+
+	for _, pvc := range result.OrphanedPVCs {
+		sizeQuantity := pvc.Spec.Resources.Requests["storage"]
+		entry := volumeEntry{
+			Name:       pvc.Name,
+			Namespace:  pvc.Namespace,
+			Status:     "ORPHANED",
+			Age:        formatDuration(time.Since(pvc.CreationTimestamp.Time).Round(24 * time.Hour)),
+			Size:       formatStorageSize(sizeQuantity),
+			SizeBytes:  quantityToBytes(sizeQuantity),
+			UsageStats: nil,
+		}
+		output.Orphaned = append(output.Orphaned, entry)
+	}
+
+	if options.ShowAll || (!options.ShowReleased && !options.ShowOrphaned) {
+		output.Bound = make([]volumeEntry, 0, len(result.BoundVolumes))
+		for _, volume := range result.BoundVolumes {
+			sizeQuantity := volume.PVC.Spec.Resources.Requests["storage"]
+			entry := volumeEntry{
+				Name:      volume.PVC.Name,
+				Namespace: volume.Namespace,
+				Status:    "BOUND",
+				Age:       formatDuration(volume.Age),
+				Size:      formatStorageSize(sizeQuantity),
+				SizeBytes: quantityToBytes(sizeQuantity),
+			}
+
+			if volume.Usage != nil {
+				entry.UsageStats = &volumeUsageEntry{
+					UsedBytes:      volume.Usage.UsedBytes,
+					UsedHuman:      formatBytes(volume.Usage.UsedBytes),
+					AvailableBytes: volume.Usage.AvailableBytes,
+					AvailableHuman: formatBytes(volume.Usage.AvailableBytes),
+					UsagePercent:   volume.Usage.UsagePercent,
+				}
+			}
+
+			output.Bound = append(output.Bound, entry)
+		}
+	}
+
+	return output
+}
+
 func displayCleanupResults(result *volumes.CleanupResult, options volumes.CleanupOptions) {
 	if options.DryRun {
 		fmt.Printf("DRY RUN - Cleanup summary:\n")
@@ -241,4 +358,48 @@ func formatUsageInfo(usage *volumes.VolumeUsage) (string, string, string) {
 	usagePercent := fmt.Sprintf("%.0f%%", usage.UsagePercent)
 
 	return used, available, usagePercent
+}
+
+type volumeListStructuredOutput struct {
+	Scope                  volumeScope   `json:"scope"`
+	Released               []volumeEntry `json:"released"`
+	Orphaned               []volumeEntry `json:"orphaned"`
+	Bound                  []volumeEntry `json:"bound,omitempty"`
+	Summary                volumeSummary `json:"summary"`
+	TotalReclaimableBytes  int64         `json:"totalReclaimableBytes"`
+	TotalReclaimableString string        `json:"totalReclaimable"`
+}
+
+type volumeScope struct {
+	Namespace     string `json:"namespace,omitempty"`
+	AllNamespaces bool   `json:"allNamespaces,omitempty"`
+}
+
+type volumeSummary struct {
+	Released int `json:"released"`
+	Orphaned int `json:"orphaned"`
+	Bound    int `json:"bound"`
+}
+
+type volumeEntry struct {
+	Name       string            `json:"name"`
+	Namespace  string            `json:"namespace,omitempty"`
+	Status     string            `json:"status"`
+	Age        string            `json:"age"`
+	Size       string            `json:"size"`
+	SizeBytes  int64             `json:"sizeBytes"`
+	UsageStats *volumeUsageEntry `json:"usage,omitempty"`
+}
+
+type volumeUsageEntry struct {
+	UsedBytes      int64   `json:"usedBytes"`
+	UsedHuman      string  `json:"used"`
+	AvailableBytes int64   `json:"availableBytes"`
+	AvailableHuman string  `json:"available"`
+	UsagePercent   float64 `json:"usagePercent"`
+}
+
+func quantityToBytes(quantity resource.Quantity) int64 {
+	q := quantity
+	return q.Value()
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"kubectl-broker/pkg"
 )
@@ -50,4 +51,25 @@ func mutuallyExclusive(flagA bool, nameA string, flagB bool, nameB string) error
 		return fmt.Errorf("cannot use both %s and %s flags together", nameA, nameB)
 	}
 	return nil
+}
+
+// currentOutputFormat returns the normalized global output format (table, json, yaml).
+func currentOutputFormat() string {
+	format := strings.ToLower(strings.TrimSpace(globalFlags.Output))
+	switch format {
+	case "", "table":
+		return "table"
+	case "json", "yaml":
+		return format
+	default:
+		return "table"
+	}
+}
+
+// colorOutputEnabled indicates whether colored CLI output should be used.
+func colorOutputEnabled() bool {
+	if globalFlags.NoColor {
+		return false
+	}
+	return currentOutputFormat() == "table"
 }
