@@ -367,3 +367,15 @@ All commands now follow the same patterns established by `broker status`:
 - Consistent debug output formatting and conditional display
 - Unified approach to intelligent defaults with visual feedback
 - Standardized help text and usage examples
+
+## Agent Guidelines
+
+To keep CLI behavior consistent across contributors and tools, every change must follow these rules:
+
+1. **Shared helpers only**: Use the functions in `cmd/kubectl-broker/cli_helpers.go` for namespace resolution, default StatefulSet selection, flag conflict checks, and global output/colour detection. Do not duplicate this logic in individual commands.
+2. **Respect global `--output`**: Commands that display data must branch on `currentOutputFormat()`. Emit table/colour output only in `table` mode (and only when `colorOutputEnabled()` returns true). For `json`/`yaml`, print structured payloads similar to `cmd/kubectl-broker/volumes_output.go`.
+3. **Separate presentation logic**: Keep large command files focused on orchestration. Move formatting/printing helpers to `*_output.go` (e.g., `status_output.go`, `volumes_output.go`) and reuse them where possible.
+4. **Consistent guidance text**: Namespace errors must include the standardized “failed to determine default namespace” guidance from `resolveNamespace`. Any additional hints (e.g., `--all-namespaces`) must be appended via the helper, not hard-coded.
+5. **Tests and formatting**: After changes, run `gofmt` on modified Go files and execute `go test ./...`. Mention any sandbox workarounds (e.g., needing escalated permissions for the Go build cache) in your notes.
+
+Following these rules ensures every LLM agent produces uniform CLI UX and keeps the repository easy to maintain.

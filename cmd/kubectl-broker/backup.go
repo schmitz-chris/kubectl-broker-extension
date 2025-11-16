@@ -41,6 +41,13 @@ var (
 	restoreLatest   bool
 )
 
+var backupListColumns = []tableColumn{
+	{Title: "BACKUP ID", Width: 16},
+	{Title: "SIZE", Width: 10},
+	{Title: "CREATED", Width: 20},
+	{Title: "STATUS", Width: 10},
+}
+
 func newBackupCommand() *cobra.Command {
 	var backupCmd = &cobra.Command{
 		Use:   "backup",
@@ -295,8 +302,7 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Display results in tabular format
-	fmt.Printf("BACKUP ID        SIZE       CREATED              STATUS\n")
-	fmt.Printf("--------         ----       -------              ------\n")
+	renderTableHeader(backupListColumns, 2)
 
 	var totalSize int64
 	for _, b := range backups {
@@ -306,7 +312,7 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 		}
 
 		statusColor := getStatusColor(b.Status)
-		fmt.Printf("%-16s %-10s %-20s %s\n",
+		fmt.Printf("%-16s  %-10s  %-20s  %s\n",
 			backupID,
 			formatBytes(b.Size),
 			b.CreatedAt.Format("2006-01-02 15:04:05"),

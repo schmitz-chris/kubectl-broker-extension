@@ -12,6 +12,26 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var (
+	volumeDetailedColumns = []tableColumn{
+		{Title: "VOLUME NAME", Width: 40},
+		{Title: "SIZE", Width: 7},
+		{Title: "USED", Width: 7},
+		{Title: "AVAIL", Width: 7},
+		{Title: "USAGE%", Width: 6},
+		{Title: "AGE", Width: 7},
+		{Title: "STATUS", Width: 11},
+		{Title: "NAMESPACE", Width: 9},
+	}
+	volumeCompactColumns = []tableColumn{
+		{Title: "VOLUME NAME", Width: 40},
+		{Title: "SIZE", Width: 7},
+		{Title: "AGE", Width: 7},
+		{Title: "STATUS", Width: 11},
+		{Title: "NAMESPACE", Width: 9},
+	}
+)
+
 func displayVolumesList(result *volumes.AnalysisResult, options volumes.AnalysisOptions) error {
 	switch currentOutputFormat() {
 	case "json":
@@ -37,11 +57,9 @@ func displayVolumesListTable(result *volumes.AnalysisResult, options volumes.Ana
 	}
 
 	if options.ShowDetailed {
-		fmt.Printf("VOLUME NAME                               SIZE     USED     AVAIL    USAGE%%  AGE      STATUS       NAMESPACE\n")
-		fmt.Printf("----------------------------------------  -------  -------  -------  ------  -------  -----------  ---------\n")
+		renderTableHeader(volumeDetailedColumns, 2)
 	} else {
-		fmt.Printf("VOLUME NAME                               SIZE     AGE      STATUS       NAMESPACE\n")
-		fmt.Printf("----------------------------------------  -------  -------  -----------  ---------\n")
+		renderTableHeader(volumeCompactColumns, 2)
 	}
 
 	for _, pv := range result.ReleasedPVs {
