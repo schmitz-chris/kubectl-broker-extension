@@ -56,6 +56,8 @@ func (c *Cleaner) CleanupVolumes(ctx context.Context, options CleanupOptions) (*
 	// Filter volumes by cleanup criteria
 	pvCandidates := c.filterPVsForCleanup(analysisResult.ReleasedPVs, options)
 	pvcCandidates := c.filterPVCsForCleanup(analysisResult.OrphanedPVCs, options)
+	result.PlannedReleasedPVs = len(pvCandidates)
+	result.PlannedOrphanedPVCs = len(pvcCandidates)
 
 	if len(pvCandidates) == 0 && len(pvcCandidates) == 0 {
 		if options.UseColors {
@@ -203,7 +205,7 @@ func (c *Cleaner) createCleanupPlan(result *CleanupResult, pvs []*v1.PersistentV
 		}
 
 		result.DryRunPreview = append(result.DryRunPreview, action)
-		result.TotalReclaimedStorage += size
+		result.PlannedReclaimedStorage += size
 	}
 
 	// Add PVC cleanup actions
@@ -225,7 +227,7 @@ func (c *Cleaner) createCleanupPlan(result *CleanupResult, pvs []*v1.PersistentV
 		}
 
 		result.DryRunPreview = append(result.DryRunPreview, action)
-		result.TotalReclaimedStorage += size
+		result.PlannedReclaimedStorage += size
 	}
 }
 
@@ -256,7 +258,7 @@ func (c *Cleaner) displayDryRunPreview(result *CleanupResult, options CleanupOpt
 	fmt.Printf("\nSummary:\n")
 	fmt.Printf("- %d PersistentVolumes would be deleted\n", countActionsByType(result.DryRunPreview, "PersistentVolume"))
 	fmt.Printf("- %d PersistentVolumeClaims would be deleted\n", countActionsByType(result.DryRunPreview, "PersistentVolumeClaim"))
-	fmt.Printf("- Total storage to be reclaimed: %s\n", formatSize(result.TotalReclaimedStorage))
+	fmt.Printf("- Total storage to be reclaimed: %s\n", formatSize(result.PlannedReclaimedStorage))
 
 	fmt.Printf("\nTo proceed with deletion, run the command again with --confirm flag.\n")
 }
@@ -268,7 +270,7 @@ func (c *Cleaner) confirmCleanup(result *CleanupResult, options CleanupOptions) 
 	}
 
 	fmt.Printf("About to delete %d volumes reclaiming %s of storage.\n",
-		len(result.DryRunPreview), formatSize(result.TotalReclaimedStorage))
+		len(result.DryRunPreview), formatSize(result.PlannedReclaimedStorage))
 
 	// Show summary by type
 	pvCount := countActionsByType(result.DryRunPreview, "PersistentVolume")
@@ -301,6 +303,10 @@ func (c *Cleaner) confirmCleanup(result *CleanupResult, options CleanupOptions) 
 // performCleanup executes the actual volume deletion
 func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs []*v1.PersistentVolume, pvcs []*v1.PersistentVolumeClaim, options CleanupOptions) error {
 	coreClient := c.k8sClient.GetCoreClient()
+	result.TotalReclaimedStorage = 0
+	result.DeletedReleasedPVs = 0
+	result.DeletedOrphanedPVCs = 0
+	result.AssociatedPVsDeleted = 0
 
 	fmt.Printf("Starting cleanup of %d volumes...\n", len(pvs)+len(pvcs))
 
@@ -320,6 +326,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 		} else {
 			fmt.Printf(" OK\n")
 			result.DeletedPVs = append(result.DeletedPVs, pv.Name)
+			result.DeletedReleasedPVs++
 
 			// Add to reclaimed storage
 			if storage, ok := pv.Spec.Capacity[v1.ResourceStorage]; ok {
@@ -352,6 +359,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 		} else {
 			fmt.Printf(" OK")
 			result.DeletedPVCs = append(result.DeletedPVCs, pvc.Name)
+			result.DeletedOrphanedPVCs++
 
 			// Add to reclaimed storage
 			if storage, ok := pvc.Spec.Resources.Requests[v1.ResourceStorage]; ok {
@@ -375,6 +383,7 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 			} else {
 				fmt.Printf(" OK\n")
 				result.DeletedPVs = append(result.DeletedPVs, associatedPV.Name)
+				result.AssociatedPVsDeleted++
 
 				// Add PV storage to reclaimed total (avoid double counting)
 				if pvcStorage, ok := pvc.Spec.Resources.Requests[v1.ResourceStorage]; ok {
@@ -390,29 +399,6 @@ func (c *Cleaner) performCleanup(ctx context.Context, result *CleanupResult, pvs
 			}
 		} else {
 			fmt.Printf("\n")
-		}
-	}
-
-	// Display cleanup summary
-	successCount := len(result.DeletedPVs) + len(result.DeletedPVCs)
-	failureCount := len(result.FailedDeletions)
-
-	fmt.Printf("\nCleanup completed:\n")
-	fmt.Printf("- Successfully deleted: %d volumes\n", successCount)
-	if failureCount > 0 {
-		fmt.Printf("- Failed to delete: %d volumes\n", failureCount)
-	}
-	fmt.Printf("- Storage reclaimed: %s\n", formatSize(result.TotalReclaimedStorage))
-
-	// Show failures if any
-	if failureCount > 0 {
-		fmt.Printf("\nFailed deletions:\n")
-		for _, failure := range result.FailedDeletions {
-			if failure.Namespace != "" {
-				fmt.Printf("- %s %s/%s: %v\n", failure.Type, failure.Namespace, failure.Name, failure.Error)
-			} else {
-				fmt.Printf("- %s %s: %v\n", failure.Type, failure.Name, failure.Error)
-			}
 		}
 	}
 
