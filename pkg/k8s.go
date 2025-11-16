@@ -23,9 +23,6 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-// Compile-time check to ensure K8sClient implements KubernetesClient interface
-var _ KubernetesClient = (*K8sClient)(nil)
-
 // K8sClient wraps specific Kubernetes client interfaces with helper methods
 type K8sClient struct {
 	coreClient *corev1client.CoreV1Client

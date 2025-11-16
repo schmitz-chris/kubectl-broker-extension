@@ -269,11 +269,6 @@ func GetHealthEndpointPath(endpoint string) string {
 	}
 }
 
-// FormatHealthStatus returns a formatted string representation of health status
-func FormatHealthStatus(status HealthStatus) string {
-	return FormatHealthStatusWithColor(status, false)
-}
-
 // FormatHealthStatusWithColor returns a formatted string representation of health status with optional colors
 func FormatHealthStatusWithColor(status HealthStatus, enableColors bool) string {
 	var text string

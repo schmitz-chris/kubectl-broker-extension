@@ -29,12 +29,6 @@ type GlobalFlags struct {
 	Output  string
 }
 
-// GlobalConfig holds the global configuration after processing flags and environment
-type GlobalConfig struct {
-	ColorsEnabled bool
-	OutputFormat  string
-}
-
 var globalFlags GlobalFlags
 
 func main() {
