@@ -325,7 +325,7 @@ func getVolumeStatusColor(status string, useColors bool) *color.Color {
 	case "ORPHANED":
 		return color.New(color.FgYellow, color.Bold)
 	case "BOUND":
-		return color.New(color.FgGreen)
+		return color.New(color.FgGreen, color.Bold)
 	default:
 		return color.New(color.FgWhite)
 	}
