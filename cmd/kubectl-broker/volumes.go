@@ -132,13 +132,14 @@ reclaimable space, and volume distribution by namespace.`,
 // Apply intelligent defaults similar to status and backup commands
 func applyVolumesDefaults() error {
 	if volumesNamespace == "" && !volumesAllNamespaces {
-		// Get current namespace from kubeconfig context
-		namespace, err := pkg.GetDefaultNamespace()
+		resolvedNamespace, fromContext, err := resolveNamespace(volumesNamespace, true)
 		if err != nil {
-			return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>\n- Use --all-namespaces for cluster-wide operations", err)
+			return err
 		}
-		volumesNamespace = namespace
-		fmt.Printf("Using namespace from context: %s\n", volumesNamespace)
+		volumesNamespace = resolvedNamespace
+		if fromContext {
+			fmt.Printf("Using namespace from context: %s\n", volumesNamespace)
+		}
 	}
 
 	return nil
@@ -194,8 +195,8 @@ func runVolumesCleanup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cleanup requires either --dry-run, --confirm, or --force flag\n\nPlease either:\n- Preview changes: --dry-run\n- Confirm deletion: --confirm\n- Force deletion: --force")
 	}
 
-	if volumesConfirm && volumesForce {
-		return fmt.Errorf("cannot use both --confirm and --force flags together")
+	if err := mutuallyExclusive(volumesConfirm, "--confirm", volumesForce, "--force"); err != nil {
+		return err
 	}
 
 	// Initialize Kubernetes client

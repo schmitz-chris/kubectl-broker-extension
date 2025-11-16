@@ -81,9 +81,8 @@ Examples:
 
 	// Apply intelligent defaults and validate flags
 	statusCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		// Validate output format flags
-		if pulseOutputJSON && pulseOutputRaw {
-			return fmt.Errorf("cannot use both --json and --raw flags together")
+		if err := mutuallyExclusive(pulseOutputJSON, "--json", pulseOutputRaw, "--raw"); err != nil {
+			return err
 		}
 
 		// Validate endpoint (pulse-specific)
@@ -92,17 +91,13 @@ Examples:
 		}
 
 		if !pulseDiscover {
-			// Apply intelligent defaults
-			if pulseNamespace == "" {
-				// Default to namespace from kubectl context
-				defaultNamespace, err := pkg.GetDefaultNamespace()
-				if err != nil {
-					return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>", err)
-				}
-				pulseNamespace = defaultNamespace
-				if !pulseOutputJSON && !pulseOutputRaw && pulseDetailed {
-					fmt.Printf("Using namespace from context: %s\n", pulseNamespace)
-				}
+			resolvedNamespace, fromContext, err := resolveNamespace(pulseNamespace, false)
+			if err != nil {
+				return err
+			}
+			pulseNamespace = resolvedNamespace
+			if fromContext && !pulseOutputJSON && !pulseOutputRaw && pulseDetailed {
+				fmt.Printf("Using namespace from context: %s\n", pulseNamespace)
 			}
 		}
 		return nil

@@ -183,18 +183,18 @@ func newBackupTestCommand() *cobra.Command {
 
 // Apply intelligent defaults similar to the status command
 func applyBackupDefaults() error {
-	if backupNamespace == "" {
-		// Get current namespace from kubeconfig context
-		namespace, err := pkg.GetDefaultNamespace()
-		if err != nil {
-			return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>", err)
-		}
-		backupNamespace = namespace
+	resolvedNamespace, fromContext, err := resolveNamespace(backupNamespace, false)
+	if err != nil {
+		return err
+	}
+	backupNamespace = resolvedNamespace
+	if fromContext {
 		fmt.Printf("Using namespace from context: %s\n", backupNamespace)
 	}
 
-	if backupStatefulSetName == "" {
-		backupStatefulSetName = "broker"
+	var usedDefault bool
+	backupStatefulSetName, usedDefault = applyDefaultStatefulSet(backupStatefulSetName)
+	if usedDefault {
 		fmt.Printf("Using default StatefulSet: %s\n", backupStatefulSetName)
 	}
 

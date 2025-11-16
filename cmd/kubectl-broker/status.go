@@ -49,17 +49,16 @@ broker nodes via port-forwarding with intelligent defaults and concurrent checks
 
 	// Apply intelligent defaults and validate flags
 	statusCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		// Validate output format flags
-		if outputJSON && outputRaw {
-			return fmt.Errorf("cannot use both --json and --raw flags together")
+		if err := mutuallyExclusive(outputJSON, "--json", outputRaw, "--raw"); err != nil {
+			return err
 		}
 
 		if !discover {
 			// Apply intelligent defaults
 			if statefulSetName == "" && podName == "" {
-				// Default to StatefulSet "broker"
-				statefulSetName = "broker"
-				if !outputJSON && !outputRaw && detailed {
+				var usedDefault bool
+				statefulSetName, usedDefault = applyDefaultStatefulSet(statefulSetName)
+				if usedDefault && !outputJSON && !outputRaw && detailed {
 					fmt.Printf("Using default StatefulSet: %s\n", statefulSetName)
 				}
 			}
@@ -68,16 +67,13 @@ broker nodes via port-forwarding with intelligent defaults and concurrent checks
 				return fmt.Errorf("cannot use both --statefulset and --pod flags together")
 			}
 
-			if namespace == "" {
-				// Default to namespace from kubectl context
-				defaultNamespace, err := pkg.GetDefaultNamespace()
-				if err != nil {
-					return fmt.Errorf("failed to determine default namespace: %w\n\nPlease either:\n- Set a kubectl context with namespace: kubectl config set-context --current --namespace=<namespace>\n- Specify namespace explicitly: --namespace <namespace>", err)
-				}
-				namespace = defaultNamespace
-				if !outputJSON && !outputRaw && detailed {
-					fmt.Printf("Using namespace from context: %s\n", namespace)
-				}
+			resolvedNamespace, fromContext, err := resolveNamespace(namespace, false)
+			if err != nil {
+				return err
+			}
+			namespace = resolvedNamespace
+			if fromContext && !outputJSON && !outputRaw && detailed {
+				fmt.Printf("Using namespace from context: %s\n", namespace)
 			}
 		}
 		return nil
