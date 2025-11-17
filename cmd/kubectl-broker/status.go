@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"kubectl-broker/pkg"
-	"kubectl-broker/pkg/health"
-
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
+
+	"kubectl-broker/pkg"
+	"kubectl-broker/pkg/health"
 )
 
 var (

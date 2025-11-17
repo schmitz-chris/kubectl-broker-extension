@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"kubectl-broker/pkg"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubectl-broker/pkg"
 )
 
 // VolumeUsage represents the usage statistics for a volume

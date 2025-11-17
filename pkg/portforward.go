@@ -9,8 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"kubectl-broker/pkg/health"
-
 	v1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+
+	"kubectl-broker/pkg/health"
 )
 
 // PortForwarder manages port-forwarding to a Kubernetes pod

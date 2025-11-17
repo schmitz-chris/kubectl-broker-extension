@@ -377,5 +377,6 @@ To keep CLI behavior consistent across contributors and tools, every change must
 3. **Separate presentation logic**: Keep large command files focused on orchestration. Move formatting/printing helpers to `*_output.go` (e.g., `status_output.go`, `volumes_output.go`) and reuse them where possible.
 4. **Consistent guidance text**: Namespace errors must include the standardized “failed to determine default namespace” guidance from `resolveNamespace`. Any additional hints (e.g., `--all-namespaces`) must be appended via the helper, not hard-coded.
 5. **Tests and formatting**: After changes, run `gofmt` on modified Go files and execute `go test ./...`. Mention any sandbox workarounds (e.g., needing escalated permissions for the Go build cache) in your notes.
+6. **Import hygiene**: Keep imports grouped as `stdlib`, third-party, then `kubectl-broker/...` packages with a blank line between groups. If goimports isn’t available, reorder manually before running `gofmt`.
 
 Following these rules ensures every LLM agent produces uniform CLI UX and keeps the repository easy to maintain.

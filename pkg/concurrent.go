@@ -10,9 +10,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"kubectl-broker/pkg/health"
-
 	v1 "k8s.io/api/core/v1"
+
+	"kubectl-broker/pkg/health"
 )
 
 // HealthCheckResult represents the result of a health check for a single pod
