@@ -36,3 +36,4 @@ go.work.sum
 
 # Backup files and test directories
 backups/*.backup
+!/kubectl-pulse
