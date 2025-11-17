@@ -12,7 +12,9 @@ import (
 	"kubectl-broker/pkg/health"
 
 	v1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
@@ -317,26 +319,13 @@ func (pf *PortForwarder) PerformWithPortForwarding(ctx context.Context, pod *v1.
 // PerformWithServicePortForwarding performs a generic operation with port forwarding established to a service
 // This works by finding a ready pod behind the service and port-forwarding to it
 func (pf *PortForwarder) PerformWithServicePortForwarding(ctx context.Context, k8sClient *K8sClient, service *v1.Service, remotePort int32, localPort int, operation func(localPort int) error) error {
-	// Get endpoints for the service to find a ready pod
-	endpoints, err := k8sClient.coreClient.Endpoints(service.Namespace).Get(ctx, service.Name, metav1.GetOptions{})
+	// Use EndpointSlices to find a ready pod
+	slices, err := pf.getEndpointSlicesForService(ctx, k8sClient, service)
 	if err != nil {
-		return fmt.Errorf("failed to get endpoints for service %s: %w", service.Name, err)
+		return err
 	}
 
-	// Find a ready endpoint
-	var targetPodName string
-	for _, subset := range endpoints.Subsets {
-		for _, address := range subset.Addresses {
-			if address.TargetRef != nil && address.TargetRef.Kind == "Pod" {
-				targetPodName = address.TargetRef.Name
-				break
-			}
-		}
-		if targetPodName != "" {
-			break
-		}
-	}
-
+	targetPodName := selectReadyPodFromSlices(slices)
 	if targetPodName == "" {
 		return fmt.Errorf("no ready pods found for service %s", service.Name)
 	}
@@ -349,6 +338,41 @@ func (pf *PortForwarder) PerformWithServicePortForwarding(ctx context.Context, k
 
 	// Use regular pod port-forwarding
 	return pf.PerformWithPortForwarding(ctx, pod, remotePort, localPort, operation)
+}
+
+func (pf *PortForwarder) getEndpointSlicesForService(ctx context.Context, k8sClient *K8sClient, service *v1.Service) ([]discoveryv1.EndpointSlice, error) {
+	selector := labels.Set(map[string]string{
+		discoveryv1.LabelServiceName: service.Name,
+	}).AsSelector().String()
+
+	sliceList, err := k8sClient.discovery.EndpointSlices(service.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: selector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint slices for service %s: %w", service.Name, err)
+	}
+	return sliceList.Items, nil
+}
+
+func selectReadyPodFromSlices(slices []discoveryv1.EndpointSlice) string {
+	for _, slice := range slices {
+		for _, endpoint := range slice.Endpoints {
+			if !isEndpointReady(endpoint) {
+				continue
+			}
+			if endpoint.TargetRef != nil && endpoint.TargetRef.Kind == "Pod" {
+				return endpoint.TargetRef.Name
+			}
+		}
+	}
+	return ""
+}
+
+func isEndpointReady(endpoint discoveryv1.Endpoint) bool {
+	if endpoint.Conditions.Ready != nil {
+		return *endpoint.Conditions.Ready
+	}
+	return true
 }
 
 // performPortForwarding is the common implementation for both pod and service port forwarding

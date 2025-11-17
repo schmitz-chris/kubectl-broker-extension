@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	discoveryclient "k8s.io/client-go/kubernetes/typed/discovery/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
@@ -27,6 +28,7 @@ import (
 type K8sClient struct {
 	coreClient *corev1client.CoreV1Client
 	appsClient *appsv1client.AppsV1Client
+	discovery  *discoveryclient.DiscoveryV1Client
 	restClient rest.Interface
 	config     *rest.Config
 }
@@ -110,6 +112,11 @@ func NewK8sClient(showDebug bool) (*K8sClient, error) {
 		return nil, fmt.Errorf("failed to create AppsV1 client: %w", err)
 	}
 
+	discoveryClient, err := discoveryclient.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DiscoveryV1 client: %w", err)
+	}
+
 	// Create REST client for port-forwarding using CoreV1 configuration
 	coreConfig := *config
 	coreConfig.APIPath = "/api"
@@ -124,6 +131,7 @@ func NewK8sClient(showDebug bool) (*K8sClient, error) {
 	return &K8sClient{
 		coreClient: coreClient,
 		appsClient: appsClient,
+		discovery:  discoveryClient,
 		restClient: restClient,
 		config:     config,
 	}, nil
@@ -207,6 +215,11 @@ func (k *K8sClient) GetCoreClient() *corev1client.CoreV1Client {
 // GetAppsClient returns the AppsV1 client for direct API access
 func (k *K8sClient) GetAppsClient() *appsv1client.AppsV1Client {
 	return k.appsClient
+}
+
+// GetDiscoveryClient returns the DiscoveryV1 client for endpoint slices
+func (k *K8sClient) GetDiscoveryClient() *discoveryclient.DiscoveryV1Client {
+	return k.discovery
 }
 
 // GetStatefulSet retrieves a StatefulSet by name and namespace
