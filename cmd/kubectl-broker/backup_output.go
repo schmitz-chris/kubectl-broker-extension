@@ -187,12 +187,7 @@ type remoteBackupsPayload struct {
 func backupScopeForEngine(engine string) backupScope {
 	value := strings.ToLower(strings.TrimSpace(engine))
 	if value == "" {
-		resolved, err := resolveBackupEngine()
-		if err != nil {
-			value = backupEngineManagement
-		} else {
-			value = resolved
-		}
+		value = backupScopeEngineManagement
 	}
 	return backupScope{
 		Namespace:   backupNamespace,

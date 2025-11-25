@@ -29,7 +29,7 @@
 4. Define response structs that match the JSON payloads from `broker-backup` docs (`list/local`, `list-remote`, restore responses, metrics). Include validation helpers.
 
 ### Phase B – CLI Flag & Mode Updates (`cmd/kubectl-broker/backup.go`)
-1. Add global flag `--engine` (`management` default, `sidecar` alternative). Provide `validateBackupEngine()` to ensure valid value + meaningful errors.
+1. Auto-detect whether the sidecar is reachable; prefer it when available and fall back to the management API without requiring a global flag.
 2. Add `--pod` (existing list command already references pods? confirm; if not, introduce) and `--sidecar-port` (default 8085) so users can aim at a specific broker pod/sidecar.
 3. Subcommand-specific flags:
    - `list`: `--remote` toggles `ListRemoteBackups`; `--limit` parameter.
@@ -68,7 +68,7 @@
 4. Provide a local smoke-test recipe in `SIDECARPLAN.md` appendix or README, e.g.:
    - `gh repo clone schmitz-chris/broker-backup`
    - `make build-sidecar`
-   - Run Token Vendor + sidecar locally (per docs) and call new CLI flags using `kubectl broker backup restore --engine sidecar --source remote --version ... --dry-run`.
+   - Run Token Vendor + sidecar locally (per docs) and call new CLI flags using `kubectl broker backup restore --source remote --version ... --dry-run`.
 
 ## 5. Open Questions / Follow-Ups
 - Does the sidecar require auth headers or is it network-limited? Add flags later if auth is introduced.

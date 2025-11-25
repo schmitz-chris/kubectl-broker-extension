@@ -2,6 +2,7 @@ package sidecar
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -13,6 +14,9 @@ import (
 
 // DefaultPort is the REST port exposed by the sidecar.
 const DefaultPort int32 = 8085
+
+// ErrUnavailable indicates the sidecar connector could not establish a connection.
+var ErrUnavailable = errors.New("sidecar unavailable")
 
 // ConnectOptions control how the connector discovers a pod and establishes port-forwarding.
 type ConnectOptions struct {
@@ -42,16 +46,16 @@ func NewConnector(k8sClient *pkg.K8sClient) *Connector {
 // WithConnection establishes port-forwarding to the sidecar and invokes fn with a configured Client.
 func (c *Connector) WithConnection(ctx context.Context, opts ConnectOptions, fn func(*Client) error) error {
 	if c == nil || c.k8sClient == nil {
-		return fmt.Errorf("sidecar connector is not initialized")
+		return fmt.Errorf("%w: connector is not initialized", ErrUnavailable)
 	}
 	if fn == nil {
-		return fmt.Errorf("callback is required")
+		return fmt.Errorf("%w: callback is required", ErrUnavailable)
 	}
 	if opts.Namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return fmt.Errorf("%w: namespace is required", ErrUnavailable)
 	}
 	if opts.Pod == "" && opts.StatefulSet == "" {
-		return fmt.Errorf("statefulset is required when pod is not specified")
+		return fmt.Errorf("%w: statefulset is required when pod is not specified", ErrUnavailable)
 	}
 	remotePort := opts.RemotePort
 	if remotePort == 0 {
@@ -60,12 +64,12 @@ func (c *Connector) WithConnection(ctx context.Context, opts ConnectOptions, fn 
 
 	pod, err := ResolveSidecarPod(ctx, c.k8sClient, opts.Namespace, opts.StatefulSet, opts.Pod)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
 
 	if !opts.SkipValidation {
 		if err := pkg.ValidatePodStatus(pod); err != nil {
-			return err
+			return fmt.Errorf("%w: %v", ErrUnavailable, err)
 		}
 	}
 
@@ -74,14 +78,25 @@ func (c *Connector) WithConnection(ctx context.Context, opts ConnectOptions, fn 
 		return fmt.Errorf("allocate local port: %w", err)
 	}
 
-	return c.portForwarder.PerformWithPortForwarding(ctx, pod, remotePort, localPort, func(localPort int) error {
+	err = c.portForwarder.PerformWithPortForwarding(ctx, pod, remotePort, localPort, func(localPort int) error {
 		baseURL := fmt.Sprintf("http://localhost:%d", localPort)
 		client := NewClient(baseURL, ClientOptions{
 			Timeout:  opts.Timeout,
 			APIToken: opts.APIToken,
 		})
-		return fn(client)
+		if fnErr := fn(client); fnErr != nil {
+			return clientFnError{err: fnErr}
+		}
+		return nil
 	})
+	if err != nil {
+		var fnErr clientFnError
+		if errors.As(err, &fnErr) {
+			return fnErr.err
+		}
+		return fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	return nil
 }
 
 // ResolveSidecarPod picks the pod that hosts the sidecar.
@@ -124,4 +139,19 @@ func ResolveSidecarPod(ctx context.Context, k8sClient *pkg.K8sClient, namespace,
 		return nil, firstErr
 	}
 	return pods[0], nil
+}
+
+type clientFnError struct {
+	err error
+}
+
+func (e clientFnError) Error() string {
+	if e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e clientFnError) Unwrap() error {
+	return e.err
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -16,12 +17,12 @@ import (
 )
 
 const (
-	backupEngineManagement = "management"
-	backupEngineSidecar    = "sidecar"
-
 	restoreSourceAuto       = "auto"
 	restoreSourceManagement = "management"
 	restoreSourceRemote     = "remote"
+
+	backupScopeEngineManagement = "management"
+	backupScopeEngineSidecar    = "sidecar"
 )
 
 var (
@@ -31,7 +32,6 @@ var (
 	backupNamespace       string
 	backupUsername        string
 	backupPassword        string
-	backupEngine          string
 	backupPodName         string
 	backupSidecarPort     int
 
@@ -103,7 +103,6 @@ Examples:
 	backupCmd.PersistentFlags().StringVarP(&backupNamespace, "namespace", "n", "", "Namespace (defaults to current kubectl context)")
 	backupCmd.PersistentFlags().StringVar(&backupUsername, "username", "", "Optional authentication username")
 	backupCmd.PersistentFlags().StringVar(&backupPassword, "password", "", "Optional authentication password")
-	backupCmd.PersistentFlags().StringVar(&backupEngine, "engine", backupEngineManagement, "Control plane to target: management (HiveMQ API) or sidecar")
 	backupCmd.PersistentFlags().StringVar(&backupPodName, "pod", "", "Specific pod to use when connecting to the sidecar engine")
 	backupCmd.PersistentFlags().IntVar(&backupSidecarPort, "sidecar-port", int(sidecar.DefaultPort), "Port exposed by the sidecar REST API")
 
@@ -233,23 +232,11 @@ func applyBackupDefaults() error {
 		fmt.Printf("Using default StatefulSet: %s\n", backupStatefulSetName)
 	}
 
-	if _, err := resolveBackupEngine(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func runBackupCreate(cmd *cobra.Command, args []string) error {
 	if err := applyBackupDefaults(); err != nil {
-		return err
-	}
-
-	engine, err := resolveBackupEngine()
-	if err != nil {
-		return err
-	}
-	if err := ensureManagementEngine(engine, "backup create"); err != nil {
 		return err
 	}
 
@@ -312,21 +299,21 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	engine, err := resolveBackupEngine()
-	if err != nil {
-		return err
-	}
-
 	if listRemote {
-		engine = backupEngineSidecar
+		return runBackupListRemote()
 	}
 
-	switch engine {
-	case backupEngineSidecar:
-		return runBackupListSidecar(engine, listRemote)
-	default:
-		return runBackupListManagement()
+	if err := runBackupListSidecarInventory(); err == nil {
+		return nil
+	} else {
+		if errors.Is(err, sidecar.ErrUnavailable) {
+			fmt.Println("Sidecar not available; falling back to HiveMQ management API listing.")
+		} else {
+			return err
+		}
 	}
+
+	return runBackupListManagement()
 }
 
 func runBackupListManagement() error {
@@ -384,39 +371,39 @@ func runBackupListManagement() error {
 	return nil
 }
 
-func runBackupListSidecar(engine string, remote bool) error {
+func runBackupListSidecarInventory() error {
 	ctx := context.Background()
-	if remote {
-		return withSidecarClient(ctx, 30*time.Second, func(ctx context.Context, client *sidecar.Client) error {
-			backups, err := client.ListRemoteBackups(ctx, listRemoteLimit)
-			if err != nil {
-				return fmt.Errorf("failed to list remote backups: %w", err)
-			}
-			renderRemoteBackups(engine, backups)
-			return nil
-		})
-	}
-
 	return withSidecarClient(ctx, 30*time.Second, func(ctx context.Context, client *sidecar.Client) error {
 		inventory, err := client.ListInventory(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list sidecar backups: %w", err)
 		}
-		renderSidecarInventory(engine, inventory)
+		renderSidecarInventory(backupScopeEngineSidecar, inventory)
 		return nil
 	})
 }
 
+func runBackupListRemote() error {
+	ctx := context.Background()
+	err := withSidecarClient(ctx, 30*time.Second, func(ctx context.Context, client *sidecar.Client) error {
+		backups, err := client.ListRemoteBackups(ctx, listRemoteLimit)
+		if err != nil {
+			return fmt.Errorf("failed to list remote backups: %w", err)
+		}
+		renderRemoteBackups(backupScopeEngineSidecar, backups)
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sidecar.ErrUnavailable) {
+			return fmt.Errorf("remote backup listing requires the HiveMQ backup sidecar: %w", err)
+		}
+		return err
+	}
+	return nil
+}
+
 func runBackupDownload(cmd *cobra.Command, args []string) error {
 	if err := applyBackupDefaults(); err != nil {
-		return err
-	}
-
-	engine, err := resolveBackupEngine()
-	if err != nil {
-		return err
-	}
-	if err := ensureManagementEngine(engine, "backup download"); err != nil {
 		return err
 	}
 
@@ -482,14 +469,6 @@ func runBackupStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	engine, err := resolveBackupEngine()
-	if err != nil {
-		return err
-	}
-	if err := ensureManagementEngine(engine, "backup status"); err != nil {
-		return err
-	}
-
 	if statusBackupID == "" && !statusLatest {
 		return fmt.Errorf("either --id or --latest must be specified\n\nPlease either:\n- Specify a backup ID: --id <backup-id>\n- Use latest backup: --latest")
 	}
@@ -548,12 +527,7 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	engine, err := resolveBackupEngine()
-	if err != nil {
-		return err
-	}
-
-	source, err := resolveRestoreSource(engine)
+	source, err := resolveRestoreSource()
 	if err != nil {
 		return err
 	}
@@ -562,9 +536,6 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 	case restoreSourceRemote:
 		return runBackupRestoreRemote()
 	default:
-		if err := ensureManagementEngine(engine, "backup restore --source management"); err != nil {
-			return err
-		}
 		if restoreDryRun {
 			return fmt.Errorf("--dry-run is only supported when --source remote")
 		}
@@ -640,21 +611,13 @@ func runBackupRestoreRemote() error {
 		if err != nil {
 			return fmt.Errorf("remote restore failed: %w", err)
 		}
-		renderRemoteRestoreResult(backupEngineSidecar, result, restoreDryRun)
+		renderRemoteRestoreResult(backupScopeEngineSidecar, result, restoreDryRun)
 		return nil
 	})
 }
 
 func runBackupTest(cmd *cobra.Command, args []string) error {
 	if err := applyBackupDefaults(); err != nil {
-		return err
-	}
-
-	engine, err := resolveBackupEngine()
-	if err != nil {
-		return err
-	}
-	if err := ensureManagementEngine(engine, "backup test"); err != nil {
 		return err
 	}
 
@@ -727,40 +690,18 @@ func runBackupTest(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func resolveBackupEngine() (string, error) {
-	value := strings.ToLower(strings.TrimSpace(backupEngine))
-	switch value {
-	case "", backupEngineManagement:
-		return backupEngineManagement, nil
-	case backupEngineSidecar:
-		return backupEngineSidecar, nil
-	default:
-		return "", fmt.Errorf("invalid engine %q. Supported values: %s, %s", backupEngine, backupEngineManagement, backupEngineSidecar)
-	}
-}
-
-func resolveRestoreSource(engine string) (string, error) {
+func resolveRestoreSource() (string, error) {
 	value := strings.ToLower(strings.TrimSpace(restoreSource))
 	switch value {
 	case "", restoreSourceAuto:
-		if engine == backupEngineSidecar {
-			return restoreSourceRemote, nil
-		}
 		return restoreSourceManagement, nil
 	case "local", restoreSourceManagement:
 		return restoreSourceManagement, nil
-	case "remote", backupEngineSidecar:
+	case "remote":
 		return restoreSourceRemote, nil
 	default:
 		return "", fmt.Errorf("invalid restore source %q. Supported values: management, remote, or auto", restoreSource)
 	}
-}
-
-func ensureManagementEngine(engine, commandName string) error {
-	if engine == backupEngineManagement {
-		return nil
-	}
-	return fmt.Errorf("%s currently supports only the management engine.\n\nPlease either:\n- Remove --engine to use the default management engine\n- Set --engine management explicitly", commandName)
 }
 
 func withSidecarClient(ctx context.Context, timeout time.Duration, fn func(context.Context, *sidecar.Client) error) error {

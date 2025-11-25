@@ -148,20 +148,20 @@ kubectl broker backup restore --id abc123
 # Restore from latest backup
 kubectl broker backup restore --latest
 
-# Engine Selection: Management vs. Sidecar
+# Sidecar-Aware Backup Operations
 
-# Management Engine (default) - Uses HiveMQ Management API
+# Management operations (auto) - Uses HiveMQ Management API
 kubectl broker backup create --namespace production
 kubectl broker backup restore --id abc123
 
-# Sidecar Engine - Provides additional capabilities
-kubectl broker backup list --engine sidecar --namespace production
+# Sidecar operations (auto-detected when available)
+kubectl broker backup list --namespace production
 
 # List remote S3 backups through the sidecar
-kubectl broker backup list --engine sidecar --remote --namespace production
+kubectl broker backup list --remote --namespace production
 
 # Dry-run a remote restore (sidecar)
-kubectl broker backup restore --engine sidecar --source remote --version backup/20250819-143025.backup --dry-run
+kubectl broker backup restore --source remote --version backup/20250819-143025.backup --dry-run
 
 # With authentication (for secured HiveMQ instances)
 kubectl broker backup create --username admin --password secret
@@ -432,9 +432,7 @@ kubectl-broker supports two backup engines:
   - Direct pod-level backup management
   - S3 upload/download automation
 
-Management-engine operations (create, download, status, and test) always use the HiveMQ API even if `--engine sidecar` is supplied. Use `--engine sidecar` only with commands that explicitly document sidecar support (e.g., `backup list --engine sidecar`, `backup list --remote`, or `backup restore --source remote`).
-
-Use `--engine sidecar` when you need advanced features like remote S3 management or dry-run restore testing.
+`kubectl-broker` automatically prefers the sidecar when it is reachable (for example, `backup list` will use the sidecar inventory and fall back to the management API if the sidecar is missing). Remote-only features such as `backup list --remote` or `backup restore --source remote` require the sidecar; when it is not available the CLI returns a helpful error so you know to deploy the sidecar component.
 
 ### Volume Management Examples
 
@@ -561,7 +559,6 @@ Namespaces with orphaned volumes: 3
 
 | Flag             | Description                                                | Example                                 |
 |------------------|------------------------------------------------------------|-----------------------------------------|
-| `--engine`       | Control plane to target (`management` or `sidecar`)        | `--engine sidecar`                      |
 | `--pod`          | Specific pod hosting the sidecar REST API                  | `--pod broker-0`                        |
 | `--sidecar-port` | Port exposed by the sidecar REST API (default `8085`)      | `--sidecar-port 8085`                   |
 
@@ -581,7 +578,7 @@ Namespaces with orphaned volumes: 3
 |-------------------|-------------------------------------------------|------------|-------------------------------------------|
 | `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                    |
 | `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`                  |
-| `--remote`        | Show remote backups via the sidecar S3 inventory| No         | `--remote --engine sidecar`               |
+| `--remote`        | Show remote backups via the sidecar S3 inventory| No         | `--remote`                               |
 | `--limit`         | Limit number of remote backups (with `--remote`)| No         | `--remote --limit 25`                     |
 | `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                        |
 | `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                       |
