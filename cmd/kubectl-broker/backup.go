@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -11,20 +12,35 @@ import (
 
 	"kubectl-broker/pkg"
 	"kubectl-broker/pkg/backup"
+	"kubectl-broker/pkg/sidecar"
+)
+
+const (
+	backupEngineManagement = "management"
+	backupEngineSidecar    = "sidecar"
+
+	restoreSourceAuto       = "auto"
+	restoreSourceManagement = "management"
+	restoreSourceRemote     = "remote"
 )
 
 var (
+
 	// Global backup flags
 	backupStatefulSetName string
 	backupNamespace       string
 	backupUsername        string
 	backupPassword        string
+	backupEngine          string
+	backupPodName         string
+	backupSidecarPort     int
 
 	// Create command flags
 	createDestination string
 
 	// List command flags
-	// (uses global flags)
+	listRemote      bool
+	listRemoteLimit int
 
 	// Download command flags
 	downloadBackupID  string
@@ -39,6 +55,9 @@ var (
 	// Restore command flags
 	restoreBackupID string
 	restoreLatest   bool
+	restoreSource   string
+	restoreVersion  string
+	restoreDryRun   bool
 )
 
 var backupListColumns = []tableColumn{
@@ -84,6 +103,9 @@ Examples:
 	backupCmd.PersistentFlags().StringVarP(&backupNamespace, "namespace", "n", "", "Namespace (defaults to current kubectl context)")
 	backupCmd.PersistentFlags().StringVar(&backupUsername, "username", "", "Optional authentication username")
 	backupCmd.PersistentFlags().StringVar(&backupPassword, "password", "", "Optional authentication password")
+	backupCmd.PersistentFlags().StringVar(&backupEngine, "engine", backupEngineManagement, "Control plane to target: management (HiveMQ API) or sidecar")
+	backupCmd.PersistentFlags().StringVar(&backupPodName, "pod", "", "Specific pod to use when connecting to the sidecar engine")
+	backupCmd.PersistentFlags().IntVar(&backupSidecarPort, "sidecar-port", int(sidecar.DefaultPort), "Port exposed by the sidecar REST API")
 
 	// Add subcommands
 	backupCmd.AddCommand(newBackupCreateCommand())
@@ -122,6 +144,9 @@ func newBackupListCommand() *cobra.Command {
 Shows backup ID, size, creation time, and status in a tabular format.`,
 		RunE: runBackupList,
 	}
+
+	listCmd.Flags().BoolVar(&listRemote, "remote", false, "List backups discovered by the sidecar (S3 inventory)")
+	listCmd.Flags().IntVar(&listRemoteLimit, "limit", 0, "Limit number of remote backups when used with --remote")
 
 	return listCmd
 }
@@ -173,6 +198,9 @@ func newBackupRestoreCommand() *cobra.Command {
 
 	restoreCmd.Flags().StringVar(&restoreBackupID, "id", "", "Backup ID to restore from")
 	restoreCmd.Flags().BoolVar(&restoreLatest, "latest", false, "Restore from the latest backup")
+	restoreCmd.Flags().StringVar(&restoreSource, "source", restoreSourceAuto, "Restore source: auto, management, or remote")
+	restoreCmd.Flags().StringVar(&restoreVersion, "version", "", "Remote backup key to restore when source=remote")
+	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "Simulate remote restore operations without downloading data")
 
 	return restoreCmd
 }
@@ -205,11 +233,23 @@ func applyBackupDefaults() error {
 		fmt.Printf("Using default StatefulSet: %s\n", backupStatefulSetName)
 	}
 
+	if _, err := resolveBackupEngine(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func runBackupCreate(cmd *cobra.Command, args []string) error {
 	if err := applyBackupDefaults(); err != nil {
+		return err
+	}
+
+	engine, err := resolveBackupEngine()
+	if err != nil {
+		return err
+	}
+	if err := ensureManagementEngine(engine, "backup create"); err != nil {
 		return err
 	}
 
@@ -272,6 +312,24 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	engine, err := resolveBackupEngine()
+	if err != nil {
+		return err
+	}
+
+	if listRemote {
+		engine = backupEngineSidecar
+	}
+
+	switch engine {
+	case backupEngineSidecar:
+		return runBackupListSidecar(engine, listRemote)
+	default:
+		return runBackupListManagement()
+	}
+}
+
+func runBackupListManagement() error {
 	// Initialize Kubernetes client
 	k8sClient, err := pkg.NewK8sClient(false)
 	if err != nil {
@@ -326,8 +384,39 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func runBackupListSidecar(engine string, remote bool) error {
+	ctx := context.Background()
+	if remote {
+		return withSidecarClient(ctx, 30*time.Second, func(ctx context.Context, client *sidecar.Client) error {
+			backups, err := client.ListRemoteBackups(ctx, listRemoteLimit)
+			if err != nil {
+				return fmt.Errorf("failed to list remote backups: %w", err)
+			}
+			renderRemoteBackups(engine, backups)
+			return nil
+		})
+	}
+
+	return withSidecarClient(ctx, 30*time.Second, func(ctx context.Context, client *sidecar.Client) error {
+		inventory, err := client.ListInventory(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list sidecar backups: %w", err)
+		}
+		renderSidecarInventory(engine, inventory)
+		return nil
+	})
+}
+
 func runBackupDownload(cmd *cobra.Command, args []string) error {
 	if err := applyBackupDefaults(); err != nil {
+		return err
+	}
+
+	engine, err := resolveBackupEngine()
+	if err != nil {
+		return err
+	}
+	if err := ensureManagementEngine(engine, "backup download"); err != nil {
 		return err
 	}
 
@@ -393,6 +482,14 @@ func runBackupStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	engine, err := resolveBackupEngine()
+	if err != nil {
+		return err
+	}
+	if err := ensureManagementEngine(engine, "backup status"); err != nil {
+		return err
+	}
+
 	if statusBackupID == "" && !statusLatest {
 		return fmt.Errorf("either --id or --latest must be specified\n\nPlease either:\n- Specify a backup ID: --id <backup-id>\n- Use latest backup: --latest")
 	}
@@ -451,25 +548,50 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	engine, err := resolveBackupEngine()
+	if err != nil {
+		return err
+	}
+
+	source, err := resolveRestoreSource(engine)
+	if err != nil {
+		return err
+	}
+
+	switch source {
+	case restoreSourceRemote:
+		return runBackupRestoreRemote()
+	default:
+		if err := ensureManagementEngine(engine, "backup restore --source management"); err != nil {
+			return err
+		}
+		if restoreDryRun {
+			return fmt.Errorf("--dry-run is only supported when --source remote")
+		}
+		if restoreVersion != "" {
+			return fmt.Errorf("--version is only supported when --source remote")
+		}
+		return runBackupRestoreManagement()
+	}
+}
+
+func runBackupRestoreManagement() error {
 	if restoreBackupID == "" && !restoreLatest {
 		return fmt.Errorf("either --id or --latest must be specified\n\nPlease either:\n- Specify a backup ID: --id <backup-id>\n- Use latest backup: --latest")
 	}
 
 	fmt.Printf("Restoring backup for StatefulSet %s in namespace %s\n", backupStatefulSetName, backupNamespace)
 
-	// Initialize Kubernetes client
 	k8sClient, err := pkg.NewK8sClient(false)
 	if err != nil {
 		return pkg.EnhanceError(err, "failed to initialize Kubernetes client")
 	}
 
-	// Get the API service from the StatefulSet
 	service, err := k8sClient.GetAPIServiceFromStatefulSet(context.Background(), backupNamespace, backupStatefulSetName)
 	if err != nil {
 		return pkg.EnhanceError(err, fmt.Sprintf("StatefulSet %s in namespace %s", backupStatefulSetName, backupNamespace))
 	}
 
-	// Set up backup options
 	options := backup.BackupOptions{
 		Username:     backupUsername,
 		Password:     backupPassword,
@@ -478,24 +600,61 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 		ShowProgress: true,
 	}
 
-	// Handle the latest backup selection
 	backupID := restoreBackupID
 	if restoreLatest {
-		backupID = "latest" // Special ID handled by RestoreBackup
+		backupID = "latest"
 		fmt.Printf("Restoring from latest backup\n")
 	}
 
-	// Restore backup
-	err = backup.RestoreBackup(context.Background(), k8sClient, service, backupID, options)
-	if err != nil {
+	if err := backup.RestoreBackup(context.Background(), k8sClient, service, backupID, options); err != nil {
 		return fmt.Errorf("restore failed: %w", err)
 	}
-
 	return nil
+}
+
+func runBackupRestoreRemote() error {
+	if restoreBackupID != "" {
+		return fmt.Errorf("--id is not supported when --source remote\n\nPlease either:\n- Specify a remote backup: --version <key>\n- Use latest remote backup: --latest")
+	}
+
+	if restoreLatest && restoreVersion != "" {
+		return fmt.Errorf("--latest cannot be combined with --version when --source remote\n\nPlease either:\n- Use --latest for the newest remote backup\n- Use --version <key> to target a specific object")
+	}
+
+	version := strings.TrimSpace(restoreVersion)
+	if version == "" && !restoreLatest {
+		return fmt.Errorf("either --version or --latest must be specified when --source remote\n\nPlease either:\n- Specify a remote backup: --version <key>\n- Use latest remote backup: --latest")
+	}
+	if restoreLatest {
+		version = "latest"
+		fmt.Println("Restoring from latest remote backup")
+	}
+
+	fmt.Printf("Restoring remote backup (%s) for StatefulSet %s in namespace %s\n", version, backupStatefulSetName, backupNamespace)
+
+	return withSidecarClient(context.Background(), 10*time.Minute, func(ctx context.Context, client *sidecar.Client) error {
+		result, err := client.Restore(ctx, sidecar.RestoreRequest{
+			Version: version,
+			DryRun:  restoreDryRun,
+		})
+		if err != nil {
+			return fmt.Errorf("remote restore failed: %w", err)
+		}
+		renderRemoteRestoreResult(backupEngineSidecar, result, restoreDryRun)
+		return nil
+	})
 }
 
 func runBackupTest(cmd *cobra.Command, args []string) error {
 	if err := applyBackupDefaults(); err != nil {
+		return err
+	}
+
+	engine, err := resolveBackupEngine()
+	if err != nil {
+		return err
+	}
+	if err := ensureManagementEngine(engine, "backup test"); err != nil {
 		return err
 	}
 
@@ -566,6 +725,65 @@ func runBackupTest(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Printf("All tests passed! This HiveMQ instance supports backup operations.\n")
 	return nil
+}
+
+func resolveBackupEngine() (string, error) {
+	value := strings.ToLower(strings.TrimSpace(backupEngine))
+	switch value {
+	case "", backupEngineManagement:
+		return backupEngineManagement, nil
+	case backupEngineSidecar:
+		return backupEngineSidecar, nil
+	default:
+		return "", fmt.Errorf("invalid engine %q. Supported values: %s, %s", backupEngine, backupEngineManagement, backupEngineSidecar)
+	}
+}
+
+func resolveRestoreSource(engine string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(restoreSource))
+	switch value {
+	case "", restoreSourceAuto:
+		if engine == backupEngineSidecar {
+			return restoreSourceRemote, nil
+		}
+		return restoreSourceManagement, nil
+	case "local", restoreSourceManagement:
+		return restoreSourceManagement, nil
+	case "remote", backupEngineSidecar:
+		return restoreSourceRemote, nil
+	default:
+		return "", fmt.Errorf("invalid restore source %q. Supported values: management, remote, or auto", restoreSource)
+	}
+}
+
+func ensureManagementEngine(engine, commandName string) error {
+	if engine == backupEngineManagement {
+		return nil
+	}
+	return fmt.Errorf("%s currently supports only the management engine.\n\nPlease either:\n- Remove --engine to use the default management engine\n- Set --engine management explicitly", commandName)
+}
+
+func withSidecarClient(ctx context.Context, timeout time.Duration, fn func(context.Context, *sidecar.Client) error) error {
+	if backupSidecarPort <= 0 || backupSidecarPort > 65535 {
+		return fmt.Errorf("invalid sidecar-port %d. Port must be between 1 and 65535", backupSidecarPort)
+	}
+
+	k8sClient, err := pkg.NewK8sClient(false)
+	if err != nil {
+		return pkg.EnhanceError(err, "failed to initialize Kubernetes client")
+	}
+
+	connector := sidecar.NewConnector(k8sClient)
+	opts := sidecar.ConnectOptions{
+		Namespace:   backupNamespace,
+		StatefulSet: backupStatefulSetName,
+		Pod:         backupPodName,
+		RemotePort:  int32(backupSidecarPort),
+		Timeout:     timeout,
+	}
+	return connector.WithConnection(ctx, opts, func(client *sidecar.Client) error {
+		return fn(ctx, client)
+	})
 }
 
 // getStatusColor returns a color function for the given backup status

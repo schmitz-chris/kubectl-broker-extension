@@ -145,8 +145,23 @@ kubectl broker backup status --latest
 # Restore from specific backup
 kubectl broker backup restore --id abc123
 
-# Restore from latest backup  
+# Restore from latest backup
 kubectl broker backup restore --latest
+
+# Engine Selection: Management vs. Sidecar
+
+# Management Engine (default) - Uses HiveMQ Management API
+kubectl broker backup create --namespace production
+kubectl broker backup restore --id abc123
+
+# Sidecar Engine - Provides additional capabilities
+kubectl broker backup list --engine sidecar --namespace production
+
+# List remote S3 backups through the sidecar
+kubectl broker backup list --engine sidecar --remote --namespace production
+
+# Dry-run a remote restore (sidecar)
+kubectl broker backup restore --engine sidecar --source remote --version backup/20250819-143025.backup --dry-run
 
 # With authentication (for secured HiveMQ instances)
 kubectl broker backup create --username admin --password secret
@@ -397,6 +412,30 @@ Status: RESTORE_COMPLETED
 **Important:** Restore can be performed on running clusters (HiveMQ 4.9.0+). HiveMQ automatically resolves data
 conflicts during live restore operations.
 
+#### Backup Engines: Management vs. Sidecar
+
+kubectl-broker supports two backup engines:
+
+**Management Engine (default):**
+- Uses the HiveMQ Management API for backup operations
+- Works with all HiveMQ versions that support the backup API
+- Suitable for standard backup/restore workflows
+- Operations: create, list, download, restore, status
+
+**Sidecar Engine:**
+- Integrates with the HiveMQ backup sidecar (`schmitz-chris/broker-backup`)
+- Provides additional capabilities for S3-based backup workflows
+- Requires the backup sidecar to be deployed alongside HiveMQ
+- Additional features:
+  - Remote S3 backup listing and inventory
+  - Dry-run restore operations (test without downloading)
+  - Direct pod-level backup management
+  - S3 upload/download automation
+
+Management-engine operations (create, download, status, and test) always use the HiveMQ API even if `--engine sidecar` is supplied. Use `--engine sidecar` only with commands that explicitly document sidecar support (e.g., `backup list --engine sidecar`, `backup list --remote`, or `backup restore --source remote`).
+
+Use `--engine sidecar` when you need advanced features like remote S3 management or dry-run restore testing.
+
 ### Volume Management Examples
 
 #### List Volumes (Fast Mode)
@@ -518,6 +557,14 @@ Namespaces with orphaned volumes: 3
 
 ### Backup Subcommand Flags
 
+#### Global Backup Flags
+
+| Flag             | Description                                                | Example                                 |
+|------------------|------------------------------------------------------------|-----------------------------------------|
+| `--engine`       | Control plane to target (`management` or `sidecar`)        | `--engine sidecar`                      |
+| `--pod`          | Specific pod hosting the sidecar REST API                  | `--pod broker-0`                        |
+| `--sidecar-port` | Port exposed by the sidecar REST API (default `8085`)      | `--sidecar-port 8085`                   |
+
 #### Create Backup
 
 | Flag              | Description                                  | Required   | Example                                 |
@@ -530,12 +577,14 @@ Namespaces with orphaned volumes: 3
 
 #### List Backups
 
-| Flag              | Description                           | Required   | Example                  |
-|-------------------|---------------------------------------|------------|--------------------------|
-| `--statefulset`   | Name of StatefulSet containing broker | Optional*  | `--statefulset broker`   |
-| `--namespace, -n` | Kubernetes namespace                  | Optional** | `--namespace production` |
-| `--username`      | Username for HiveMQ authentication    | No         | `--username admin`       |
-| `--password`      | Password for HiveMQ authentication    | No         | `--password secret`      |
+| Flag              | Description                                     | Required   | Example                                   |
+|-------------------|-------------------------------------------------|------------|-------------------------------------------|
+| `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                    |
+| `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`                  |
+| `--remote`        | Show remote backups via the sidecar S3 inventory| No         | `--remote --engine sidecar`               |
+| `--limit`         | Limit number of remote backups (with `--remote`)| No         | `--remote --limit 25`                     |
+| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                        |
+| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                       |
 
 #### Download Backup
 
@@ -551,14 +600,19 @@ Namespaces with orphaned volumes: 3
 
 #### Restore Backup
 
-| Flag              | Description                           | Required    | Example                  |
-|-------------------|---------------------------------------|-------------|--------------------------|
-| `--id`            | Specific backup ID to restore from    | Optional*** | `--id 20250819-143025`   |
-| `--latest`        | Restore from latest backup            | Optional*** | `--latest`               |
-| `--statefulset`   | Name of StatefulSet containing broker | Optional*   | `--statefulset broker`   |
-| `--namespace, -n` | Kubernetes namespace                  | Optional**  | `--namespace production` |
-| `--username`      | Username for HiveMQ authentication    | No          | `--username admin`       |
-| `--password`      | Password for HiveMQ authentication    | No          | `--password secret`      |
+| Flag              | Description                                                | Required    | Example                                         |
+|-------------------|------------------------------------------------------------|-------------|-------------------------------------------------|
+| `--id`            | Specific backup ID to restore from (management engine)     | Optional*** | `--id 20250819-143025`                          |
+| `--latest`        | Restore from latest backup                                 | Optional*** | `--latest`                                      |
+| `--source`        | Restore source: `management`, `remote`, or `auto`          | No          | `--source remote`                               |
+| `--version`       | Remote backup key (sidecar engine)                         | No          | `--version backup/20250819-143025.backup`       |
+| `--dry-run`       | Simulate remote restore without downloading data           | No          | `--source remote --dry-run`                     |
+| `--statefulset`   | Name of StatefulSet containing broker                      | Optional*   | `--statefulset broker`                          |
+| `--namespace, -n` | Kubernetes namespace                                       | Optional**  | `--namespace production`                        |
+| `--username`      | Username for HiveMQ authentication (management engine)     | No          | `--username admin`                              |
+| `--password`      | Password for HiveMQ authentication (management engine)     | No          | `--password secret`                             |
+
+When using the sidecar engine (`--source remote`), you must supply either `--version <key>` or `--latest` to choose the backup object explicitly.
 
 #### Check Backup Status
 
