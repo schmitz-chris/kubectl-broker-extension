@@ -32,22 +32,13 @@
 1. Auto-detect whether the sidecar is reachable; prefer it when available and fall back to the management API without requiring a global flag.
 2. Add `--pod` (existing list command already references pods? confirm; if not, introduce) and `--sidecar-port` (default 8085) so users can aim at a specific broker pod/sidecar.
 3. Subcommand-specific flags:
-   - `list`: `--remote` toggles `ListRemoteBackups`; `--limit` parameter.
-   - `download`: `--remote` + `--version <key>` to grab S3 objects via sidecar when HiveMQ API download isn’t supported.
-   - `status`: `--remote` uses sidecar metadata if available.
+   - `list`: Always call `ListRemoteBackups` (S3 inventory) with an optional `--limit` parameter.
+   - `download`: Reserve additional flags for future sidecar-aware transfers (no `--remote` toggle).
    - `restore`: `--source {local,remote}`, `--version`, `--dry-run`; default `local` for management API parity.
 4. Ensure flag conflict checks follow the shared helpers (e.g., `checkMutuallyExclusiveFlags`). Errors must follow the “Please either:” guidance.
 
 ### Phase C – Command Execution Paths
-1. Refactor each subcommand to call a dispatcher:
-   ```go
-   switch currentBackupEngine() {
-   case backupEngineSidecar:
-       return runBackupListSidecar(...)
-   default:
-       return runBackupListManagement(...)
-   }
-   ```
+1. Refactor each subcommand so the list path always hits the sidecar’s remote inventory, while management-only paths keep their existing behavior.
 2. Implement sidecar variants using the new client package. Responsibilities:
    - Resolve namespace/statefulset defaults (existing `applyBackupDefaults`).
    - Determine pod + remote port; use pod port-forwarding to build `http://localhost:<port>`.
@@ -56,7 +47,7 @@
 
 ### Phase D – Output & Presentation Helpers
 1. Create `cmd/kubectl-broker/backup_output.go` (if not already) or extend it to include:
-   - Table schema and renderers for sidecar remote lists (columns: `NAMESPACE-UUID`, `OBJECT`, `SIZE`, `AGE`, `STATUS`).
+   - Table schema and renderers for sidecar remote lists (columns: `OBJECT`, `SIZE`, `AGE`).
    - JSON/YAML emitters using `currentOutputFormat()`; tables only in `table` mode.
 2. Add dedicated formatting helpers for restore responses (show mode, version, dry-run indicator, status message). Use `colorOutputEnabled()` for status text.
 3. Update README / CLI help: describe new flags, mention Token Vendor + sidecar requirements, add examples for remote restore/dry run.

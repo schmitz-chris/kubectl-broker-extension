@@ -157,9 +157,6 @@ kubectl broker backup restore --id abc123
 # Sidecar operations (auto-detected when available)
 kubectl broker backup list --namespace production
 
-# List remote S3 backups through the sidecar
-kubectl broker backup list --remote --namespace production
-
 # Dry-run a remote restore (sidecar)
 kubectl broker backup restore --source remote --version backup/20250819-143025.backup --dry-run
 
@@ -432,7 +429,7 @@ kubectl-broker supports two backup engines:
   - Direct pod-level backup management
   - S3 upload/download automation
 
-`kubectl-broker` automatically prefers the sidecar when it is reachable (for example, `backup list` will use the sidecar inventory and fall back to the management API if the sidecar is missing). Remote-only features such as `backup list --remote` or `backup restore --source remote` require the sidecar; when it is not available the CLI returns a helpful error so you know to deploy the sidecar component.
+`kubectl-broker` automatically uses the sidecar for any operation that requires it. `backup list` always queries the sidecar’s remote inventory (`/v1/backup/list-remote`) and will report a clear error if the sidecar is not available. Remote-only features such as `backup list` or `backup restore --source remote` therefore require the sidecar; management-engine operations (create/download/status/test) continue to work without it.
 
 ### Volume Management Examples
 
@@ -578,10 +575,7 @@ Namespaces with orphaned volumes: 3
 |-------------------|-------------------------------------------------|------------|-------------------------------------------|
 | `--statefulset`   | Name of StatefulSet containing broker           | Optional*  | `--statefulset broker`                    |
 | `--namespace, -n` | Kubernetes namespace                            | Optional** | `--namespace production`                  |
-| `--remote`        | Show remote backups via the sidecar S3 inventory| No         | `--remote`                               |
-| `--limit`         | Limit number of remote backups (with `--remote`)| No         | `--remote --limit 25`                     |
-| `--username`      | Username for HiveMQ authentication              | No         | `--username admin`                        |
-| `--password`      | Password for HiveMQ authentication              | No         | `--password secret`                       |
+| `--limit`         | Limit number of remote backups returned         | No         | `--limit 25`                              |
 
 #### Download Backup
 

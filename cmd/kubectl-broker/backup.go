@@ -39,7 +39,6 @@ var (
 	createDestination string
 
 	// List command flags
-	listRemote      bool
 	listRemoteLimit int
 
 	// Download command flags
@@ -59,13 +58,6 @@ var (
 	restoreVersion  string
 	restoreDryRun   bool
 )
-
-var backupListColumns = []tableColumn{
-	{Title: "BACKUP ID", Width: 16},
-	{Title: "SIZE", Width: 10},
-	{Title: "CREATED", Width: 20},
-	{Title: "STATUS", Width: 10},
-}
 
 func newBackupCommand() *cobra.Command {
 	var backupCmd = &cobra.Command{
@@ -139,13 +131,12 @@ func newBackupListCommand() *cobra.Command {
 	var listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List all available backups",
-		Long: `List all available backups from the HiveMQ broker cluster. 
-Shows backup ID, size, creation time, and status in a tabular format.`,
+		Long: `List remote backups discovered by the HiveMQ backup sidecar (S3 inventory).
+Requires the backup sidecar to be deployed alongside the broker.`,
 		RunE: runBackupList,
 	}
 
-	listCmd.Flags().BoolVar(&listRemote, "remote", false, "List backups discovered by the sidecar (S3 inventory)")
-	listCmd.Flags().IntVar(&listRemoteLimit, "limit", 0, "Limit number of remote backups when used with --remote")
+	listCmd.Flags().IntVar(&listRemoteLimit, "limit", 0, "Limit number of remote backups returned by the sidecar")
 
 	return listCmd
 }
@@ -299,88 +290,14 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if listRemote {
-		return runBackupListRemote()
-	}
-
-	if err := runBackupListSidecarInventory(); err == nil {
-		return nil
-	} else {
+	if err := runBackupListRemote(); err != nil {
 		if errors.Is(err, sidecar.ErrUnavailable) {
-			fmt.Println("Sidecar not available; falling back to HiveMQ management API listing.")
-		} else {
-			return err
+			return fmt.Errorf("backup list requires the HiveMQ backup sidecar to be deployed and accessible. "+
+				"Please verify the sidecar is running in namespace %s", backupNamespace)
 		}
+		return err
 	}
-
-	return runBackupListManagement()
-}
-
-func runBackupListManagement() error {
-	// Initialize Kubernetes client
-	k8sClient, err := pkg.NewK8sClient(false)
-	if err != nil {
-		return pkg.EnhanceError(err, "failed to initialize Kubernetes client")
-	}
-
-	// Get the API service from the StatefulSet
-	service, err := k8sClient.GetAPIServiceFromStatefulSet(context.Background(), backupNamespace, backupStatefulSetName)
-	if err != nil {
-		return pkg.EnhanceError(err, fmt.Sprintf("StatefulSet %s in namespace %s", backupStatefulSetName, backupNamespace))
-	}
-
-	// Set up backup options
-	options := backup.BackupOptions{
-		Username: backupUsername,
-		Password: backupPassword,
-	}
-
-	// List backups
-	backups, err := backup.ListBackups(context.Background(), k8sClient, service, options)
-	if err != nil {
-		return fmt.Errorf("failed to list backups: %w", err)
-	}
-
-	if len(backups) == 0 {
-		fmt.Println("No backups found.")
-		return nil
-	}
-
-	// Display results in tabular format
-	renderTableHeader(backupListColumns, 2)
-
-	var totalSize int64
-	for _, b := range backups {
-		backupID := b.ID
-		if len(backupID) > 16 {
-			backupID = backupID[:16]
-		}
-
-		statusColor := getStatusColor(b.Status)
-		fmt.Printf("%-16s  %-10s  %-20s  %s\n",
-			backupID,
-			formatBytes(b.Size),
-			b.CreatedAt.Format("2006-01-02 15:04:05"),
-			statusColor.Sprint(string(b.Status)))
-
-		totalSize += b.Size
-	}
-
-	fmt.Printf("\nSummary: %d backups, %s total\n", len(backups), formatBytes(totalSize))
-
 	return nil
-}
-
-func runBackupListSidecarInventory() error {
-	ctx := context.Background()
-	return withSidecarClient(ctx, 30*time.Second, func(ctx context.Context, client *sidecar.Client) error {
-		inventory, err := client.ListInventory(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to list sidecar backups: %w", err)
-		}
-		renderSidecarInventory(backupScopeEngineSidecar, inventory)
-		return nil
-	})
 }
 
 func runBackupListRemote() error {
